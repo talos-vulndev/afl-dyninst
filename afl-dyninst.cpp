@@ -122,9 +122,6 @@ bool insertCallToInit(BPatch_binaryEdit * appBin, BPatch_function * instIncFunc,
     vector<BPatch_point *> points;
     vector < BPatch_point * >*funcEntry = funcInit->findPoint (BPatch_entry);
 
-    // rar main @ 0x4034c0
-    // readpng main @ 0x400e0b
-
     if (NULL == funcEntry) {
         cerr << "Failed to find entry for function. " <<  endl;
         return false;
@@ -221,11 +218,47 @@ int main (int argc, char **argv)
 
     BPatch bpatch;
 
-    BPatch_binaryEdit *appBin = bpatch.openBinary (originalBinary, !instrumentLibraries.empty());
+    BPatch_binaryEdit *appBin = bpatch.openBinary (originalBinary, instrumentLibraries.size() != 1);
     if (appBin == NULL) {
         cerr << "Failed to open binary" << endl;
         return EXIT_FAILURE;
     }
+
+
+    BPatch_image *appImage = appBin->getImage ();
+
+
+    //get and iterate over all modules, instrumenting only the default and manualy specified ones
+    vector < BPatch_module * >*modules = appImage->getModules ();
+    vector < BPatch_module * >::iterator moduleIter;
+    vector < BPatch_function * >* funcsInModule; 
+    BPatch_module *defaultModule = NULL;
+    string defaultModuleName;
+
+    // look for _init
+    if(defaultModuleName.empty()){
+        for (moduleIter = modules->begin(); moduleIter != modules->end(); ++moduleIter){
+            funcsInModule = (*moduleIter)->getProcedures();
+    	    vector < BPatch_function * >::iterator funcsIterator;
+    	    for (funcsIterator = funcsInModule->begin(); funcsIterator != funcsInModule->end(); ++funcsIterator){
+        		char funcName[1024];
+        		(*funcsIterator)->getName(funcName,1024);
+        		if(string(funcName) == string("_init")){
+    	            char moduleName[1024];
+        		    (*moduleIter)->getName(moduleName,1024);
+    	            defaultModuleName = string(moduleName);
+                    if(verbose) {
+                        cout << "Found _init in " << moduleName<< endl;
+                    }
+        		    break;
+        		}	
+            }
+                    if(!defaultModuleName.empty()) break;
+    	}
+    }
+    // last resort, by name of the binary
+    if(defaultModuleName.empty()) 
+        defaultModuleName = string(originalBinary).substr(string(originalBinary).find_last_of("\\/")+1);
 
     if (!appBin->loadLibrary (instLibrary)) {
         cerr << "Failed to open instrumentation library." << endl;
@@ -233,8 +266,8 @@ int main (int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    BPatch_image *appImage = appBin->getImage ();
-
+	appImage = appBin->getImage ();
+	
     /* Find code coverage functions in the instrumentation library */
     BPatch_function *initAflForkServer =
         findFuncByName (appImage, (char *) "initAflForkServer");
@@ -245,21 +278,7 @@ int main (int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    //get and iterate over all modules, instrumenting only the default and manualy specified ones
-    vector < BPatch_module * >*modules = appImage->getModules ();
-    vector < BPatch_module * >::iterator moduleIter;
-    BPatch_module *defaultModule = NULL;
-    string defaultModuleName;
-    for (moduleIter = modules->begin (); moduleIter != modules->end (); ++moduleIter) {
-    //find default module name
-        char moduleName[1024];
-        (*moduleIter)->getName (moduleName, 1024);    
-        if (string (moduleName).find ("DEFAULT_MODULE") != string::npos) {
-            defaultModuleName = "DEFAULT_MODULE";
-        }
-    }
-    if(defaultModuleName.empty()) 
-        defaultModuleName = string(originalBinary).substr(string(originalBinary).find_last_of("\\/")+1);
+
     int bbIndex = 0;
     for (moduleIter = modules->begin (); moduleIter != modules->end (); ++moduleIter) {
         char moduleName[1024];
@@ -328,15 +347,16 @@ int main (int argc, char **argv)
         set<string>::iterator rtLibIter ;
         for(rtLibIter = runtimeLibraries.begin(); rtLibIter != runtimeLibraries.end(); rtLibIter++) {
             BPatch_binaryEdit *libBin = bpatch.openBinary ((*rtLibIter).c_str(), false);
+            printf("I sad otvara %s\n",(*rtLibIter).c_str());
             if (libBin == NULL) {
                 cerr << "Failed to open binary "<< *rtLibIter << endl;
                 return EXIT_FAILURE;
             }
-            libBin->loadLibrary (instLibrary);
             BPatch_image *libImg = libBin->getImage ();
             vector < BPatch_module * >*modules = libImg->getModules ();
+            libBin->loadLibrary (instLibrary);
             moduleIter = modules->begin ();
-            ++moduleIter;
+            
             for ( ; moduleIter != modules->end (); ++moduleIter) {
                 char moduleName[1024];
                 (*moduleIter)->getName (moduleName, 1024);
