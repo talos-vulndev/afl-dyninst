@@ -29,7 +29,7 @@ set<string> runtimeLibraries;
 int bbSkip = 0;
 bool skipMainModule = false;
 
-const char *instLibrary = "./libAflDyninst.so";
+const char *instLibrary = "libAflDyninst.so";
 
 static const char *OPT_STR = "i:o:l:e:vs:dr:";
 static const char *USAGE = " -i <binary> -o <binary> -l <library> -e <address> -s <number>\n \
