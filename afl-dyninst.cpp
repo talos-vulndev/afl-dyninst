@@ -347,14 +347,12 @@ int main (int argc, char **argv)
         set<string>::iterator rtLibIter ;
         for(rtLibIter = runtimeLibraries.begin(); rtLibIter != runtimeLibraries.end(); rtLibIter++) {
             BPatch_binaryEdit *libBin = bpatch.openBinary ((*rtLibIter).c_str(), false);
-            printf("I sad otvara %s\n",(*rtLibIter).c_str());
             if (libBin == NULL) {
                 cerr << "Failed to open binary "<< *rtLibIter << endl;
                 return EXIT_FAILURE;
             }
             BPatch_image *libImg = libBin->getImage ();
             vector < BPatch_module * >*modules = libImg->getModules ();
-            libBin->loadLibrary (instLibrary);
             moduleIter = modules->begin ();
             
             for ( ; moduleIter != modules->end (); ++moduleIter) {
