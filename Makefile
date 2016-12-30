@@ -8,7 +8,7 @@ AFL_ROOT = ./afl
 DEPS_ROOT = /usr/local
 
 CXX = g++
-CXXFLAGS = -g -Wall -O3
+CXXFLAGS = -g -Wall -O3 -std=c++11
 LIBFLAGS = -fpic -shared
 
 CC = gcc
