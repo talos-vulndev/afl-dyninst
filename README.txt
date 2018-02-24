@@ -9,13 +9,15 @@ inserting callbacks for each basic block and an initialization
 callback either at _init or at specified entry point.
 
 Usage: ./afl-dyninst -i <binary> -o <binary> -l <library> -e <address> -s <number>
-             -i: Input binary 
-             -o: Output binary
-             -l: Library to instrument (repeat for more than one)
-             -e: Entry point address to patch (required for stripped binaries)
-             -r: Runtime library to instrument (path to, repeat for more than one)
-             -s: Number of basic blocks to skip
-             -v: Verbose output
+  -i: Input binary 
+  -o: Output binary
+  -l: Library to instrument (repeat for more than one)
+  -e: Entry point address to patch (required for stripped binaries)
+  -r: Runtime library to instrument (path to, repeat for more than one)
+  -s: Number of basic blocks to skip
+  -m: minimum size of a basic bock to instrument (default: 1)
+  -f: fix dyninst bug to sometimes not save edi/rdi register
+  -v: Verbose output
 
 Switch -l is used to supply the names of the libraries that should 
 be instrumented along the binary. Instrumented libraries will be copied
@@ -41,6 +43,15 @@ via dlopen() at runtime. Instrumented runtime libraries will be
 written to the same location with a ".ins" suffix as not to overwrite
 the original ones. Make sure to backup the originals and then rename the
 instrumented ones to original name. 
+
+Switch -m allows you to only instrument basic blocks of a minimum size - the
+default minimum size is 1
+
+Switch -f fixes a dyninst bug that lead to bugs in the instrumented program:
+our basic block instrumentation function loaded into the instrumentd binaries
+uses the edi/rdi. However dyninst does not always saves and restores it when
+instrumenting that function leading to crashes and changed program behaviour
+when the register is used for function parameters.
 
 The instrumentation library "libDyninst.so" must be available in the current working
 directory as that is where the instrumented binary will be looking for it.
