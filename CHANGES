@@ -1,0 +1,12 @@
+Changelog
+=========
+
+vh@thc.org / https://github.com/vanhauser-thc/afl-dyninst:
+ - added -f switch to fix a bug in dyninst where sometimes the edi/rdi
+   register is not saved which is used in the instrumentation function
+   when a function is using edi/rdi for parameter passing
+ - added -m switch to only instrument basic blocks of a minimum size
+ - code beautifications, more detailed output, spelling fixes
+ - added afl-dyninst.sh and afl-fuzz.sh helper scripts which presets
+   the necessary environment variables
+ - base: https://github.com/talos-vulndev/afl-dyninst
