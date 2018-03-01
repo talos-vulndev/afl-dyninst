@@ -8,6 +8,10 @@ Instrumentation tool (afl-dyninst) instruments the supplied binary by
 inserting callbacks for each basic block and an initialization 
 callback either at _init or at specified entry point.
 
+
+Commandline options
+-------------------
+
 Usage: ./afl-dyninst -i <binary> -o <binary> -l <library> -e <address> -s <number>
   -i: Input binary 
   -o: Output binary
@@ -17,6 +21,7 @@ Usage: ./afl-dyninst -i <binary> -o <binary> -l <library> -e <address> -s <numbe
   -s: Number of basic blocks to skip
   -m: minimum size of a basic bock to instrument (default: 1)
   -f: fix dyninst bug to sometimes not save edi/rdi register
+  -S: do not instrument this function (can be specified only once)
   -v: Verbose output
 
 Switch -l is used to supply the names of the libraries that should 
@@ -53,15 +58,20 @@ uses the edi/rdi. However dyninst does not always saves and restores it when
 instrumenting that function leading to crashes and changed program behaviour
 when the register is used for function parameters.
 
-The instrumentation library "libDyninst.so" must be available in the current working
-directory as that is where the instrumented binary will be looking for it.
+Switch -S allows you to not instrument a specific function.
+This options is mainly to hunt down bugs in dyninst. It can only be set once.
+
 
 Compiling:
+----------
 
 1. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
 2. make
+3. make install
 
-Example of running the tool:
+
+Example of running the tool
+---------------------------
 
 Dyninst requires DYNINSTAPI_RT_LIB environment variable to point to the location
 of libdyninstAPI_RT.so.
@@ -78,7 +88,12 @@ Here we are instrumenting  the rar binary with entrypoint at 0x4034c0
 (manualy found address of main), skipping the first 100 basic blocks 
 and outputing to rar_ins. 
 
+
 Running AFL on instrumented binary
+----------------------------------
+
+NOTE: The instrumentation library "libDyninst.so" must be available in the current working
+directory or LD_LIBRARY_PATH as that is where the instrumented binary will be looking for it.
 
 Since AFL checks if the binary has been instrumented by afl-gcc,AFL_SKIP_BIN_CHECK environment 
 variable needs to be set. No modifications to AFL it self is needed. 
@@ -86,5 +101,5 @@ $ export AFL_SKIP_BIN_CHECK=1
 Then, AFL can be run as usual:
 $ afl-fuzz  -i testcases/archives/common/gzip/ -o test_gzip -- ./gzip_ins -d -c 
 
-
-
+Note that there are the helper scripts afl-fuzz.sh and afl-dyninst.sh for you which set the
+required environment variables for you.

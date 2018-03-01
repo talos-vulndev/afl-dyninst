@@ -1,7 +1,10 @@
 Changelog
 =========
 
-vh@thc.org / https://github.com/vanhauser-thc/afl-dyninst:
+https://github.com/vanhauser-thc/afl-dyninst
+ - added -S switch to skip instrumenting a specific function
+ - added make install target
+ - updated README
  - Fix for programs that were unable to print to stdout after instrumentation
  - added -f switch to fix a bug in dyninst where sometimes the edi/rdi
    register is not saved which is used in the instrumentation function

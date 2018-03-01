@@ -30,13 +30,14 @@ set < string > runtimeLibraries;
 int bbSkip = 0, dynfix = 0;
 unsigned int bbMinSize = 1;
 bool skipMainModule = false;
+char *skipFunc = NULL;
 
 BPatch_function *save_rdi;
 BPatch_function *restore_rdi;
 
 const char *instLibrary = "libAflDyninst.so";
 
-static const char *OPT_STR = "fi:o:l:e:vs:dr:m:";
+static const char *OPT_STR = "fi:o:l:e:vs:dr:m:S:";
 static const char *USAGE = " -i <binary> -o <binary> -l <library> -e <address> -s <number> -m <size>\n \
   -i: Input binary \n \
   -o: Output binary\n \
@@ -47,6 +48,7 @@ static const char *USAGE = " -i <binary> -o <binary> -l <library> -e <address> -
   -s: Number of basic blocks to skip\n \
   -m: minimum size of a basic bock to instrument (default: 1)\n \
   -f: try to fix crashes\n \
+  -S: do not instrument this function (can be specified only once)\n \
   -v: Verbose output\n";
 
 bool parseOptions(int argc, char **argv) {
@@ -54,6 +56,9 @@ bool parseOptions(int argc, char **argv) {
 
   while ((c = getopt(argc, argv, OPT_STR)) != -1) {
     switch ((char) c) {
+    case 'S':
+      skipFunc = optarg;
+      break;
     case 'e':
       entryPoint = strtoul(optarg, NULL, 16);;
       break;
@@ -181,7 +186,7 @@ bool insertBBCallback(BPatch_binaryEdit *appBin, BPatch_function *curFunc, char 
 
     randID = rand() % USHRT_MAX;
     if (verbose) {
-      cout << "Instrumenting Basic Block 0x" << hex << address << " of " << funcName << " of size " << dec << (*iter)->size() << " with random id " << randID << endl;
+      cout << "Instrumenting Basic Block 0x" << hex << address << " of " << funcName << " with size " << dec << (*iter)->size() << " with random id " << randID << "/0x" << hex << randID << endl;
     }
 
     BPatch_Vector < BPatch_snippet * >instArgs1;
@@ -322,6 +327,11 @@ int main(int argc, char **argv) {
       curFunc->getName(funcName, 1024);
       if (string(funcName) == string("_start"))
         continue;               // here's a bug on hlt // XXX: check what happens if removed
+      if (skipFunc != NULL && strcmp(skipFunc, funcName) == 0) {
+        if (verbose)
+          cout << "Skipping instrumenting function " << funcName << endl;
+        continue;
+      }
       insertBBCallback(appBin, curFunc, funcName, bbCallback, &bbIndex);
     }
   }

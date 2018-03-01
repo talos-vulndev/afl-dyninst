@@ -20,7 +20,7 @@ static int __afl_temp_data;
 static pid_t __afl_fork_pid;
 static unsigned short prev_id;
 static long saved_di;
-register long rdi asm("di");    // the warning is fine - we need the warning because of a bug in dyninst
+register long rdi asm("di");  // the warning is fine - we need the warning because of a bug in dyninst
 
 #define PRINT_ERROR(string) write(2, string, strlen(string))
 
