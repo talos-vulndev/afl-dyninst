@@ -2,6 +2,7 @@ Changelog
 =========
 
 vh@thc.org / https://github.com/vanhauser-thc/afl-dyninst:
+ - Fix for programs that were unable to print to stdout after instrumentation
  - added -f switch to fix a bug in dyninst where sometimes the edi/rdi
    register is not saved which is used in the instrumentation function
    when a function is using edi/rdi for parameter passing
