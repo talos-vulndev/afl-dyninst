@@ -16,6 +16,7 @@ using namespace std;
 #include "BPatch_flowGraph.h"
 #include "BPatch_function.h"
 #include "BPatch_point.h"
+#include "dyninstversion.h"
 
 using namespace Dyninst;
 
@@ -27,29 +28,32 @@ bool verbose = false;
 Dyninst::Address entryPoint;
 set < string > instrumentLibraries;
 set < string > runtimeLibraries;
-int bbSkip = 0, dynfix = 0;
+set < string > skipAddresses;
+set < unsigned long > exitAddresses;
 unsigned int bbMinSize = 1;
-bool skipMainModule = false;
-char *skipFunc = NULL;
+int bbSkip = 0;
+bool skipMainModule = false, do_bb = true, dynfix = false;
 
 BPatch_function *save_rdi;
 BPatch_function *restore_rdi;
 
 const char *instLibrary = "libAflDyninst.so";
 
-static const char *OPT_STR = "fi:o:l:e:vs:dr:m:S:";
-static const char *USAGE = " -i <binary> -o <binary> -l <library> -e <address> -s <number> -m <size>\n \
-  -i: Input binary \n \
-  -o: Output binary\n \
-  -d: Don't instrument the binary, only supplied libraries\n \
-  -l: Linked library to instrument (repeat for more than one)\n \
-  -r: Runtime library to instrument (path to, repeat for more than one)\n \
-  -e: Entry point address to patch (required for stripped binaries)\n \
-  -s: Number of basic blocks to skip\n \
+static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:D";
+static const char *USAGE = "-dfvD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>\n \
+  -i: input binary \n \
+  -o: output binary\n \
+  -d: do not instrument the binary, only supplied libraries\n \
+  -l: linked library to instrument (repeat for more than one)\n \
+  -r: runtime library to instrument (path to, repeat for more than one)\n \
+  -e: entry point address to patch (required for stripped binaries)\n \
+  -E: exit point - force exit(0) at this address (repeat for more than one)\n \
+  -s: number of initial basic blocks to skip in binary\n \
   -m: minimum size of a basic bock to instrument (default: 1)\n \
-  -f: try to fix crashes\n \
-  -S: do not instrument this function (can be specified only once)\n \
-  -v: Verbose output\n";
+  -f: try to fix a dyninst bug that leads to crashes\n \
+  -S: do not instrument this function (repeat for more than one)\n \
+  -D: instrument fork server and forced exit functions but no basic blocks\n \
+  -v: verbose output\n";
 
 bool parseOptions(int argc, char **argv) {
   int c;
@@ -57,10 +61,10 @@ bool parseOptions(int argc, char **argv) {
   while ((c = getopt(argc, argv, OPT_STR)) != -1) {
     switch ((char) c) {
     case 'S':
-      skipFunc = optarg;
+      skipAddresses.insert(optarg);
       break;
     case 'e':
-      entryPoint = strtoul(optarg, NULL, 16);;
+      entryPoint = strtoul(optarg, NULL, 16);
       break;
     case 'i':
       originalBinary = optarg;
@@ -71,6 +75,9 @@ bool parseOptions(int argc, char **argv) {
       break;
     case 'l':
       instrumentLibraries.insert(optarg);
+      break;
+    case 'E':
+      exitAddresses.insert(strtoul(optarg, NULL, 16));
       break;
     case 'r':
       runtimeLibraries.insert(optarg);
@@ -85,7 +92,10 @@ bool parseOptions(int argc, char **argv) {
       skipMainModule = true;
       break;
     case 'f':
-      dynfix = 1;
+      dynfix = true;
+      break;
+    case 'D':
+      do_bb = false;
       break;
     case 'v':
       verbose = true;
@@ -207,10 +217,10 @@ bool insertBBCallback(BPatch_binaryEdit *appBin, BPatch_function *curFunc, char 
     BPatch_funcCallExpr instIncExpr3(*restore_rdi, instArgs1);
     BPatch_funcCallExpr instIncExpr(*instBBIncFunc, instArgs);
     BPatchSnippetHandle *handle;
-    if (dynfix)
+    if (dynfix == true)
       handle = appBin->insertSnippet(instIncExpr1, *bbEntry, BPatch_callBefore, BPatch_lastSnippet);
     handle = appBin->insertSnippet(instIncExpr, *bbEntry, BPatch_callBefore, BPatch_lastSnippet);
-    if (dynfix)
+    if (dynfix == true)
       handle = appBin->insertSnippet(instIncExpr3, *bbEntry, BPatch_callBefore, BPatch_lastSnippet);
 
     if (!handle) {
@@ -227,8 +237,21 @@ bool insertBBCallback(BPatch_binaryEdit *appBin, BPatch_function *curFunc, char 
 }
 
 int main(int argc, char **argv) {
+  if (argc < 3 || strncmp(argv[1], "-h", 2) == 0 || strncmp(argv[1], "--h", 3) == 0) {
+    cout << "Usage: " << argv[0] << USAGE;
+    return false;
+  }
+
   if (!parseOptions(argc, argv)) {
     return EXIT_FAILURE;
+  }
+  
+  if (DYNINST_MAJOR_VERSION < 9 || (DYNINST_MAJOR_VERSION == 9 && DYNINST_MINOR_VERSION < 3) || (DYNINST_MAJOR_VERSION == 9 && DYNINST_MINOR_VERSION == 3 && DYNINST_PATCH_VERSION <= 2)) {
+    if (dynfix == false)
+      fprintf(stderr, "Warning: your dyninst version does not include a critical fix, you should use the -f option!\n");
+  } else {
+    if (dynfix == true)
+      fprintf(stderr, "Notice: your dyninst version is fixed, the -f option should not be necessary.\n");
   }
 
   BPatch bpatch;
@@ -289,8 +312,9 @@ int main(int argc, char **argv) {
   save_rdi = findFuncByName(appImage, (char *) "save_rdi");
   restore_rdi = findFuncByName(appImage, (char *) "restore_rdi");
   BPatch_function *bbCallback = findFuncByName(appImage, (char *) "bbCallback");
+  BPatch_function *forceCleanExit = findFuncByName(appImage, (char *) "forceCleanExit");
 
-  if (!initAflForkServer || !bbCallback || !save_rdi || !restore_rdi) {
+  if (!initAflForkServer || !bbCallback || !save_rdi || !restore_rdi || !forceCleanExit) {
     cerr << "Instrumentation library lacks callbacks!" << endl;
     return EXIT_FAILURE;
   }
@@ -315,35 +339,45 @@ int main(int argc, char **argv) {
       if (skipMainModule)
         continue;
     }
-    cout << "Instrumenting module: " << moduleName << endl;
-    vector < BPatch_function * >*allFunctions = (*moduleIter)->getProcedures();
-    vector < BPatch_function * >::iterator funcIter;
+    
+    if (do_bb) {
+      cout << "Instrumenting module: " << moduleName << endl;
+      vector < BPatch_function * >*allFunctions = (*moduleIter)->getProcedures();
+      vector < BPatch_function * >::iterator funcIter;
 
-    // iterate over all functions in the module
-    for (funcIter = allFunctions->begin(); funcIter != allFunctions->end(); ++funcIter) {
-      BPatch_function *curFunc = *funcIter;
-      char funcName[1024];
+      // iterate over all functions in the module
+      for (funcIter = allFunctions->begin(); funcIter != allFunctions->end(); ++funcIter) {
+        BPatch_function *curFunc = *funcIter;
+        char funcName[1024];
+        int do_patch = 1;
 
-      curFunc->getName(funcName, 1024);
-      if (string(funcName) == string("_start"))
-        continue;               // here's a bug on hlt // XXX: check what happens if removed
-      if (skipFunc != NULL && strcmp(skipFunc, funcName) == 0) {
-        if (verbose)
-          cout << "Skipping instrumenting function " << funcName << endl;
-        continue;
+        curFunc->getName(funcName, 1024);
+        if (string(funcName) == string("_start"))
+          continue;               // here's a bug on hlt // XXX: check what happens if removed
+        
+        if (!skipAddresses.empty()) {
+          set < string >::iterator saiter;
+          for (saiter = skipAddresses.begin(); saiter != skipAddresses.end() && do_patch == 1; saiter++)
+            if (*saiter == string(funcName))
+              do_patch = 0;
+          if (do_patch == 0) {
+            cout << "Skipping instrumenting function " << funcName << endl;
+            continue;
+          }
+        }
+        insertBBCallback(appBin, curFunc, funcName, bbCallback, &bbIndex);
       }
-      insertBBCallback(appBin, curFunc, funcName, bbCallback, &bbIndex);
     }
   }
 
-  // if entrypoint set´ then find function, else find _init
+  // if an entrypoint was set then find function, else find _init
   BPatch_function *funcToPatch = NULL;
 
   if (!entryPoint) {
     BPatch_Vector < BPatch_function * >funcs;
     defaultModule->findFunction("_init", funcs);
     if (!funcs.size()) {
-      cerr << "Couldn't locate _init, specify entry point manualy. " << endl;
+      cerr << "Couldn't locate _init, specify entry point manually with -e 0xaddr" << endl;
       return EXIT_FAILURE;
     }
     // there should really be only one
@@ -351,7 +385,6 @@ int main(int argc, char **argv) {
   } else {
     funcToPatch = defaultModule->findFunctionByEntry(entryPoint);
   }
-
   if (!funcToPatch) {
     cerr << "Couldn't locate function at given entry point. " << endl;
     return EXIT_FAILURE;
@@ -359,6 +392,22 @@ int main(int argc, char **argv) {
   if (!insertCallToInit(appBin, initAflForkServer, defaultModule, funcToPatch)) {
     cerr << "Could not insert init callback at given entry point." << endl;
     return EXIT_FAILURE;
+  }
+
+  if (!exitAddresses.empty()) {
+    cout << "Instrumenting forced exit addresses." << endl;
+    set < unsigned long >::iterator uliter;
+    for (uliter = exitAddresses.begin(); uliter != exitAddresses.end(); uliter++) {
+      if (*uliter > 0 && (signed long)*uliter != -1) {
+        funcToPatch = defaultModule->findFunctionByEntry(*uliter);
+        if (!funcToPatch) {
+          cerr << "Could not find enty point 0x" << hex << *uliter << " (continuing)" << endl;
+        } else {
+          if (!insertCallToInit(appBin, forceCleanExit, defaultModule, funcToPatch))
+            cerr << "Could not insert force clean exit callback at 0x" << hex << *uliter << " (continuing)" << endl;
+        }
+      }
+    }
   }
 
   cout << "Saving the instrumented binary to " << instrumentedBinary << " ..." << endl;

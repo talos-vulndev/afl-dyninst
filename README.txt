@@ -12,17 +12,20 @@ callback either at _init or at specified entry point.
 Commandline options
 -------------------
 
-Usage: ./afl-dyninst -i <binary> -o <binary> -l <library> -e <address> -s <number>
-  -i: Input binary 
-  -o: Output binary
-  -l: Library to instrument (repeat for more than one)
-  -e: Entry point address to patch (required for stripped binaries)
-  -r: Runtime library to instrument (path to, repeat for more than one)
-  -s: Number of basic blocks to skip
-  -m: minimum size of a basic bock to instrument (default: 1)
-  -f: fix dyninst bug to sometimes not save edi/rdi register
-  -S: do not instrument this function (can be specified only once)
-  -v: Verbose output
+Usage: ./afl-dyninst-dfvD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>
+   -i: input binary 
+   -o: output binary
+   -d: do not instrument the binary, only supplied libraries
+   -l: linked library to instrument (repeat for more than one)
+   -r: runtime library to instrument (path to, repeat for more than one)
+   -e: entry point address to patch (required for stripped binaries)
+   -E: exit point - force exit(0) at this address (repeat for more than one)
+   -s: number of initial basic blocks to skip in binary
+   -m: minimum size of a basic bock to instrument (default: 1)
+   -f: try to fix a dyninst bug that leads to crashes
+   -S: do not instrument this function (repeat for more than one)
+   -D: instrument fork server and forced exit functions but no basic blocks
+   -v: verbose output
 
 Switch -l is used to supply the names of the libraries that should 
 be instrumented along the binary. Instrumented libraries will be copied
@@ -36,6 +39,9 @@ to using _init of the binary as an entry point. In case of stripped binaries
 this option is required and is best set to the address of main which 
 can easily be determined by disassembling the binary and looking for an 
 argument to __libc_start_main. 
+
+Switch -E is used to specify addresses that should force a clean exit
+when reached. This can speed up the fuzzing tremendously.
 
 Switch -s instructs afl-dyninst to skip the first <number> of basic
 blocks. Currently, it is used to work around a bug in Dyninst
@@ -58,8 +64,12 @@ uses the edi/rdi. However dyninst does not always saves and restores it when
 instrumenting that function leading to crashes and changed program behaviour
 when the register is used for function parameters.
 
-Switch -S allows you to not instrument a specific function.
-This options is mainly to hunt down bugs in dyninst. It can only be set once.
+Switch -S allows you to not instrument specific functions.
+This options is mainly to hunt down bugs in dyninst.
+
+Switch -D installs the afl fork server and forced exit functions but no
+basic block instrumentation. That would serve no purpose - unless there is
+another interesting tool coming up ...
 
 
 Compiling:

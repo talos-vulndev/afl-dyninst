@@ -22,7 +22,7 @@ static unsigned short prev_id;
 static long saved_di;
 register long rdi asm("di");  // the warning is fine - we need the warning because of a bug in dyninst
 
-#define PRINT_ERROR(string) write(2, string, strlen(string))
+#define PRINT_ERROR(string) (void)(write(2, string, strlen(string))+1) // the (...+1) weirdness is so we do not get an ignoring return value warning
 
 void initAflForkServer() {
   // we can not use fprint* stdout/stderr functions here, it fucks up some programs
@@ -80,6 +80,10 @@ void bbCallback(unsigned short id) {
     trace_bits[prev_id ^ id]++;
     prev_id = id >> 1;
   }
+}
+
+void forceCleanExit() {
+  exit(0);
 }
 
 void save_rdi() {
