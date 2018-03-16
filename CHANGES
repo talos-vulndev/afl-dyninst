@@ -2,8 +2,10 @@ Changelog
 =========
 
 https://github.com/vanhauser-thc/afl-dyninst
+ - renamed afl-fuzz.sh to afl-fuzz-dyninst.sh and make install
+   installs now the scripts
  - added -E switch to force a program exit at specific addresses
- - added -D switch which does not basic block instrumentation
+ - added -D switch which does not do basic block instrumentation
  - the -S switch can now be specified several times
  - checks the dyninst version and comments on the -f option
  - added -S switch to skip instrumenting a specific function

@@ -69,7 +69,7 @@ This options is mainly to hunt down bugs in dyninst.
 
 Switch -D installs the afl fork server and forced exit functions but no
 basic block instrumentation. That would serve no purpose - unless there is
-another interesting tool coming up ...
+another interesting tool coming up ... :)
 
 
 Compiling:
@@ -109,7 +109,7 @@ Since AFL checks if the binary has been instrumented by afl-gcc,AFL_SKIP_BIN_CHE
 variable needs to be set. No modifications to AFL it self is needed. 
 $ export AFL_SKIP_BIN_CHECK=1
 Then, AFL can be run as usual:
-$ afl-fuzz  -i testcases/archives/common/gzip/ -o test_gzip -- ./gzip_ins -d -c 
+$ afl-fuzz -i testcases/archives/common/gzip/ -o test_gzip -- ./gzip_ins -d -c 
 
-Note that there are the helper scripts afl-fuzz.sh and afl-dyninst.sh for you which set the
+Note that there are the helper scripts afl-fuzz-dyninst.sh and afl-dyninst.sh for you which set the
 required environment variables for you.

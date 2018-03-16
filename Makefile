@@ -40,5 +40,5 @@ clean:
 install: all
 	install -d $(INSTALL_ROOT)/bin
 	install -d $(INSTALL_ROOT)/lib
-	install afl-dyninst $(INSTALL_ROOT)/bin
+	install afl-dyninst afl-dyninst.sh afl-fuzz-dyninst.sh $(INSTALL_ROOT)/bin
 	install libAflDyninst.so $(INSTALL_ROOT)/lib	
