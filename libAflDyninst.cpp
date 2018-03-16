@@ -93,3 +93,41 @@ void save_rdi() {
 void restore_rdi() {
   rdi = saved_di;
 }
+
+
+void initOnlyAflForkServer() {
+  // enter fork() server thyme!
+  int n = write(FORKSRV_FD + 1, &__afl_temp_data, 4);
+
+  if (n != 4) {
+    PRINT_ERROR("Error writting fork server\n");
+    return;
+  }
+  while (1) {
+    n = read(FORKSRV_FD, &__afl_temp_data, 4);
+    if (n != 4) {
+      PRINT_ERROR("Error reading fork server\n");
+      return;
+    }
+
+    __afl_fork_pid = fork();
+    if (__afl_fork_pid < 0) {
+      PRINT_ERROR("Error on fork()\n");
+      return;
+    }
+    if (__afl_fork_pid == 0) {
+      close(FORKSRV_FD);
+      close(FORKSRV_FD + 1);
+      break;
+    } else {
+      // parrent stuff
+      n = write(FORKSRV_FD + 1, &__afl_fork_pid, 4);
+      pid_t temp_pid = waitpid(__afl_fork_pid, &__afl_temp_data, 2);
+
+      if (temp_pid == 0) {
+        return;
+      }
+      n = write(FORKSRV_FD + 1, &__afl_temp_data, 4);
+    }
+  }
+}

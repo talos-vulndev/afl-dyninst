@@ -52,7 +52,7 @@ static const char *USAGE = "-dfvD -i <binary> -o <binary> -l <library> -e <addre
   -m: minimum size of a basic bock to instrument (default: 1)\n \
   -f: try to fix a dyninst bug that leads to crashes\n \
   -S: do not instrument this function (repeat for more than one)\n \
-  -D: instrument fork server and forced exit functions but no basic blocks\n \
+  -D: instrument only a simple fork server and also forced exit functions\n \
   -v: verbose output\n";
 
 bool parseOptions(int argc, char **argv) {
@@ -246,12 +246,14 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
   
-  if (DYNINST_MAJOR_VERSION < 9 || (DYNINST_MAJOR_VERSION == 9 && DYNINST_MINOR_VERSION < 3) || (DYNINST_MAJOR_VERSION == 9 && DYNINST_MINOR_VERSION == 3 && DYNINST_PATCH_VERSION <= 2)) {
-    if (dynfix == false)
-      fprintf(stderr, "Warning: your dyninst version does not include a critical fix, you should use the -f option!\n");
-  } else {
-    if (dynfix == true)
-      fprintf(stderr, "Notice: your dyninst version is fixed, the -f option should not be necessary.\n");
+  if (do_bb == true) {
+    if (DYNINST_MAJOR_VERSION < 9 || (DYNINST_MAJOR_VERSION == 9 && DYNINST_MINOR_VERSION < 3) || (DYNINST_MAJOR_VERSION == 9 && DYNINST_MINOR_VERSION == 3 && DYNINST_PATCH_VERSION <= 2)) {
+      if (dynfix == false)
+        fprintf(stderr, "Warning: your dyninst version does not include a critical fix, you should use the -f option!\n");
+    } else {
+      if (dynfix == true)
+        fprintf(stderr, "Notice: your dyninst version is fixed, the -f option should not be necessary.\n");
+    }
   }
 
   BPatch bpatch;
@@ -308,11 +310,16 @@ int main(int argc, char **argv) {
   appImage = appBin->getImage();
 
   /* Find code coverage functions in the instrumentation library */
-  BPatch_function *initAflForkServer = findFuncByName(appImage, (char *) "initAflForkServer");
+  BPatch_function *initAflForkServer;
   save_rdi = findFuncByName(appImage, (char *) "save_rdi");
   restore_rdi = findFuncByName(appImage, (char *) "restore_rdi");
   BPatch_function *bbCallback = findFuncByName(appImage, (char *) "bbCallback");
   BPatch_function *forceCleanExit = findFuncByName(appImage, (char *) "forceCleanExit");
+
+  if (do_bb == true)
+    initAflForkServer = findFuncByName(appImage, (char *) "initAflForkServer");
+  else
+    initAflForkServer = findFuncByName(appImage, (char *) "initOnlyAflForkServer");
 
   if (!initAflForkServer || !bbCallback || !save_rdi || !restore_rdi || !forceCleanExit) {
     cerr << "Instrumentation library lacks callbacks!" << endl;
@@ -340,7 +347,7 @@ int main(int argc, char **argv) {
         continue;
     }
     
-    if (do_bb) {
+    if (do_bb == true) {
       cout << "Instrumenting module: " << moduleName << endl;
       vector < BPatch_function * >*allFunctions = (*moduleIter)->getProcedures();
       vector < BPatch_function * >::iterator funcIter;
