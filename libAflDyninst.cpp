@@ -42,7 +42,7 @@ void initAflForkServer() {
   int n = write(FORKSRV_FD + 1, &__afl_temp_data, 4);
 
   if (n != 4) {
-    PRINT_ERROR("Error writting fork server\n");
+    PRINT_ERROR("Error writing fork server\n");
     return;
   }
   while (1) {
