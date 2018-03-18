@@ -2,6 +2,7 @@ Changelog
 =========
 
 https://github.com/vanhauser-thc/afl-dyninst
+ - fixed some typos
  - renamed afl-fuzz.sh to afl-fuzz-dyninst.sh and make install
    installs now the scripts
  - added -E switch to force a program exit at specific addresses
@@ -19,4 +20,4 @@ https://github.com/vanhauser-thc/afl-dyninst
  - code beautifications, more detailed output, spelling fixes
  - added afl-dyninst.sh and afl-fuzz.sh helper scripts which presets
    the necessary environment variables
- - base: https://github.com/talos-vulndev/afl-dyninst
+ - based on https://github.com/talos-vulndev/afl-dyninst
