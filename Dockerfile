@@ -1,5 +1,5 @@
 FROM ubuntu:trusty
-MAINTAINER rjohnson@moflow.org
+MAINTAINER rjohnson@moflow.org/vh@thc.org
 
 # dyninst ubuntu 14.04/x64
 RUN apt-get update && apt-get install -y \
@@ -20,9 +20,7 @@ RUN apt-get update && apt-get install -y \
         libboost-all-dev \
     && rm -rf /var/lib/apt/lists/*
 
-#RUN curl http://www.paradyn.org/release9.1.0/DyninstAPI-9.1.0.tgz | tar -zxvf - \
-#    && cd DyninstAPI-9.1.0/ \
-RUN git clone https://github.com/dyninst/dyninst.git \
+RUN git clone https://github.com/dyninst/dyninst \
         && cd dyninst && mkdir build && cd build \
         && cmake .. \
         && make \
@@ -30,17 +28,16 @@ RUN git clone https://github.com/dyninst/dyninst.git \
         && cd ../..
 
 RUN curl http://lcamtuf.coredump.cx/afl/releases/afl-latest.tgz | tar -zxvf - \
-        && cd afl-2* \
+        && cd afl-* \
         && make \
         && make install \
         && cd ..
 
-RUN git clone https://github.com/talos-vulndev/afl-dyninst.git \
+RUN git clone https://github.com/vanhauser-thc/afl-dyninst \
         && cd afl-dyninst \
         && ln -s `ls -d1 ../afl-2* | tail -1` afl \
         && make \
-        && cp afl-dyninst /usr/bin \
-        && cp libAflDyninst.so /usr/local/lib/ \
+        && make install \
         && cd .. \
         && echo "/usr/local/lib" > /etc/ld.so.conf.d/dyninst.conf && ldconfig \
         && echo "export DYNINSTAPI_RT_LIB=/usr/local/lib/libdyninstAPI_RT.so" >> .bashrc

@@ -8,16 +8,24 @@ Instrumentation tool (afl-dyninst) instruments the supplied binary by
 inserting callbacks for each basic block and an initialization 
 callback either at _init or at specified entry point.
 
-Usage: ./afl-dyninst -i <binary> -o <binary> -l <library> -e <address> -s <number>
-  -i: Input binary 
-  -o: Output binary
-  -l: Library to instrument (repeat for more than one)
-  -e: Entry point address to patch (required for stripped binaries)
-  -r: Runtime library to instrument (path to, repeat for more than one)
-  -s: Number of basic blocks to skip
-  -m: minimum size of a basic bock to instrument (default: 1)
-  -f: fix dyninst bug to sometimes not save edi/rdi register
-  -v: Verbose output
+
+Commandline options
+-------------------
+
+Usage: ./afl-dyninst-dfvD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>
+   -i: input binary 
+   -o: output binary
+   -d: do not instrument the binary, only supplied libraries
+   -l: linked library to instrument (repeat for more than one)
+   -r: runtime library to instrument (path to, repeat for more than one)
+   -e: entry point address to patch (required for stripped binaries)
+   -E: exit point - force exit(0) at this address (repeat for more than one)
+   -s: number of initial basic blocks to skip in binary
+   -m: minimum size of a basic bock to instrument (default: 1)
+   -f: try to fix a dyninst bug that leads to crashes
+   -S: do not instrument this function (repeat for more than one)
+   -D: instrument fork server and forced exit functions but no basic blocks
+   -v: verbose output
 
 Switch -l is used to supply the names of the libraries that should 
 be instrumented along the binary. Instrumented libraries will be copied
@@ -31,6 +39,9 @@ to using _init of the binary as an entry point. In case of stripped binaries
 this option is required and is best set to the address of main which 
 can easily be determined by disassembling the binary and looking for an 
 argument to __libc_start_main. 
+
+Switch -E is used to specify addresses that should force a clean exit
+when reached. This can speed up the fuzzing tremendously.
 
 Switch -s instructs afl-dyninst to skip the first <number> of basic
 blocks. Currently, it is used to work around a bug in Dyninst
@@ -53,15 +64,24 @@ uses the edi/rdi. However dyninst does not always saves and restores it when
 instrumenting that function leading to crashes and changed program behaviour
 when the register is used for function parameters.
 
-The instrumentation library "libDyninst.so" must be available in the current working
-directory as that is where the instrumented binary will be looking for it.
+Switch -S allows you to not instrument specific functions.
+This options is mainly to hunt down bugs in dyninst.
+
+Switch -D installs the afl fork server and forced exit functions but no
+basic block instrumentation. That would serve no purpose - unless there is
+another interesting tool coming up ... :)
+
 
 Compiling:
+----------
 
 1. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
 2. make
+3. make install
 
-Example of running the tool:
+
+Example of running the tool
+---------------------------
 
 Dyninst requires DYNINSTAPI_RT_LIB environment variable to point to the location
 of libdyninstAPI_RT.so.
@@ -78,13 +98,18 @@ Here we are instrumenting  the rar binary with entrypoint at 0x4034c0
 (manualy found address of main), skipping the first 100 basic blocks 
 and outputing to rar_ins. 
 
+
 Running AFL on instrumented binary
+----------------------------------
+
+NOTE: The instrumentation library "libDyninst.so" must be available in the current working
+directory or LD_LIBRARY_PATH as that is where the instrumented binary will be looking for it.
 
 Since AFL checks if the binary has been instrumented by afl-gcc,AFL_SKIP_BIN_CHECK environment 
 variable needs to be set. No modifications to AFL it self is needed. 
 $ export AFL_SKIP_BIN_CHECK=1
 Then, AFL can be run as usual:
-$ afl-fuzz  -i testcases/archives/common/gzip/ -o test_gzip -- ./gzip_ins -d -c 
+$ afl-fuzz -i testcases/archives/common/gzip/ -o test_gzip -- ./gzip_ins -d -c 
 
-
-
+Note that there are the helper scripts afl-fuzz-dyninst.sh and afl-dyninst.sh for you which set the
+required environment variables for you.

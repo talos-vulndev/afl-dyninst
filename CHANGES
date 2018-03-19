@@ -1,7 +1,18 @@
 Changelog
 =========
 
-vh@thc.org / https://github.com/vanhauser-thc/afl-dyninst:
+https://github.com/vanhauser-thc/afl-dyninst
+ - fixed some typos
+ - renamed afl-fuzz.sh to afl-fuzz-dyninst.sh and make install
+   installs now the scripts
+ - added -E switch to force a program exit at specific addresses
+ - added -D switch which does not do basic block instrumentation
+ - the -S switch can now be specified several times
+ - checks the dyninst version and comments on the -f option
+ - added -S switch to skip instrumenting a specific function
+ - added make install target
+ - updated README
+ - Fix for programs that were unable to print to stdout after instrumentation
  - added -f switch to fix a bug in dyninst where sometimes the edi/rdi
    register is not saved which is used in the instrumentation function
    when a function is using edi/rdi for parameter passing
@@ -9,4 +20,4 @@ vh@thc.org / https://github.com/vanhauser-thc/afl-dyninst:
  - code beautifications, more detailed output, spelling fixes
  - added afl-dyninst.sh and afl-fuzz.sh helper scripts which presets
    the necessary environment variables
- - base: https://github.com/talos-vulndev/afl-dyninst
+ - based on https://github.com/talos-vulndev/afl-dyninst

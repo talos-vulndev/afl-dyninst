@@ -7,6 +7,9 @@ AFL_ROOT = ./afl
 # path to libelf and libdwarf
 DEPS_ROOT = /usr/local
 
+# where to install
+INSTALL_ROOT = /usr/local
+
 CXX = g++
 CXXFLAGS = -g -Wall -O3 -std=c++11
 LIBFLAGS = -fpic -shared
@@ -33,3 +36,9 @@ afl-dyninst.o: afl-dyninst.cpp
 
 clean:
 	rm -f afl-dyninst *.so *.o 
+
+install: all
+	install -d $(INSTALL_ROOT)/bin
+	install -d $(INSTALL_ROOT)/lib
+	install afl-dyninst afl-dyninst.sh afl-fuzz-dyninst.sh $(INSTALL_ROOT)/bin
+	install libAflDyninst.so $(INSTALL_ROOT)/lib	
