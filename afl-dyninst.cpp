@@ -32,15 +32,15 @@ set < string > skipAddresses;
 set < unsigned long > exitAddresses;
 unsigned int bbMinSize = 1;
 int bbSkip = 0;
-bool skipMainModule = false, do_bb = true, dynfix = false;
+bool skipMainModule = false, do_bb = true, dynfix = false, performance = false;
 
 BPatch_function *save_rdi;
 BPatch_function *restore_rdi;
 
 const char *instLibrary = "libAflDyninst.so";
 
-static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:D";
-static const char *USAGE = "-dfvD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>\n \
+static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:Dx";
+static const char *USAGE = "-dfvxD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>\n \
   -i: input binary \n \
   -o: output binary\n \
   -d: do not instrument the binary, only supplied libraries\n \
@@ -53,6 +53,7 @@ static const char *USAGE = "-dfvD -i <binary> -o <binary> -l <library> -e <addre
   -f: try to fix a dyninst bug that leads to crashes\n \
   -S: do not instrument this function (repeat for more than one)\n \
   -D: instrument only a simple fork server and also forced exit functions\n \
+  -x: experimental performance mode\n \
   -v: verbose output\n";
 
 bool parseOptions(int argc, char **argv) {
@@ -60,6 +61,9 @@ bool parseOptions(int argc, char **argv) {
 
   while ((c = getopt(argc, argv, OPT_STR)) != -1) {
     switch ((char) c) {
+    case 'x':
+      performance = true;
+      break;
     case 'S':
       skipAddresses.insert(optarg);
       break;
