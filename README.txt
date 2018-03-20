@@ -46,7 +46,7 @@ when reached. This can speed up the fuzzing tremendously.
 Switch -s instructs afl-dyninst to skip the first <number> of basic
 blocks. Currently, it is used to work around a bug in Dyninst
 but doubles as an optimization option, as skipping the basic blocks 
-of the initialization rutines makes things run faster. If the instrumented
+of the initialization routines makes things run faster. If the instrumented
 binary is crashing by itself, try skiping a number of blocks.
 
 Switch -r allows you to specify a path to the library that is loaded
