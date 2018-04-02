@@ -2,6 +2,10 @@ Changelog
 =========
 
 https://github.com/vanhauser-thc/afl-dyninst
+ - -e option now also understands function names, not only 0x1234 addresses
+ - searches for multiple entrypoints now: main, init, start and _NAME variants
+ - afl-dyninst now works fine with AARCH64 :)
+ - more verbose output, -vv -vvv support
  - fixed some typos
  - renamed afl-fuzz.sh to afl-fuzz-dyninst.sh and make install
    installs now the scripts

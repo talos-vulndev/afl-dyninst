@@ -69,12 +69,14 @@ This options is mainly to hunt down bugs in dyninst.
 
 Switch -D installs the afl fork server and forced exit functions but no
 basic block instrumentation. That would serve no purpose - unless there is
-another interesting tool coming up ... :)
+another interesting tool coming up: afl-pin (already available at
+https://github.com/vanhauser-thc/afl-pin) and afl-dynamorio (wip)
 
 
 Compiling:
 ----------
 
+0. Clone, compile and install dyninst: https://github.com/dyninst/dyninst/
 1. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
 2. make
 3. make install
