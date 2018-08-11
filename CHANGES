@@ -2,9 +2,13 @@ Changelog
 =========
 
 https://github.com/vanhauser-thc/afl-dyninst
+ - added -x performance optimization options, before this afl-dyninst was meh,
+   now it is OK. It supports 3 levels: -x (+45%, -xx additional +45%,
+    -xxx additional ~3% but so far only on intel x64)
+   top speed is now ~110% on stock afl-dyninst and ~65% on stock afl-gcc
  - -e option now also understands function names, not only 0x1234 addresses
  - searches for multiple entrypoints now: main, init, start and _NAME variants
- - afl-dyninst now works fine with AARCH64 :)
+ - afl-dyninst now works fine with AARCH64 and PPC :)
  - more verbose output, -vv -vvv support
  - fixed some typos
  - renamed afl-fuzz.sh to afl-fuzz-dyninst.sh and make install

@@ -25,6 +25,12 @@ Usage: ./afl-dyninst-dfvD -i <binary> -o <binary> -l <library> -e <address> -E <
    -f: try to fix a dyninst bug that leads to crashes
    -S: do not instrument this function (repeat for more than one)
    -D: instrument fork server and forced exit functions but no basic blocks
+   -x: experimental performance modes (can be set up to three times)
+         level 1: ~40-50%% improvement
+         level 2: ~100%% vs normal, ~40%% vs level 1
+         level 3: ~110%% vs normal, ~5%% vs level 2
+       level 3 replaces how basic block coverage works and can be tried if
+       normal mode or level 1 or 2 lead to crashes randomly.
    -v: verbose output
 
 Switch -l is used to supply the names of the libraries that should 
@@ -71,6 +77,15 @@ Switch -D installs the afl fork server and forced exit functions but no
 basic block instrumentation. That would serve no purpose - unless there is
 another interesting tool coming up: afl-pin (already available at
 https://github.com/vanhauser-thc/afl-pin) and afl-dynamorio (wip)
+
+Switch -x enables performance modes, -x level 1, -xx level 2 and  -xxx level 3
+level 3 is only availble for intel x64 and can either save your ass or not
+work for you whatsoever.
+level 1 (-x) is highly recommended (+50%).
+level 2 (-xx) gives an additonal 40% but removes (usually unnecessary) precautions
+level 3 (-xxx) gives only a very small additional speed and works differently,
+ it basically replaces the instrumented instructions by dyninst with own ones.
+ this is a good idea when you run into dyninst bugs.
 
 
 Compiling:
