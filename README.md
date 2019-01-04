@@ -17,11 +17,17 @@ Note that you can also use dyninst 9.3.2, its actually less hassle, but has less
 
 1. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
 
-if you installed dyninst 10.x or from github you also have to set DYNINST_BUILD set DYNINST_OPT to $(DYNINST10)
+if you built dyninst 10.x or from directly from github: you also have to set DYNINST_BUILD to the .../dyninst/build directory and then set DYNINST_OPT to $(DYNINST10)
 
 2. make
 
 3. make install
+
+
+*NOTE:* building dyninst10 is a pain. I recommend the following steps:
+1. remove elfutils if installed as distribution package
+2. download the newest elfutils, make and (!) make install
+
 
 
 ## Commandline options
