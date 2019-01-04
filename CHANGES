@@ -2,6 +2,8 @@ Changelog
 =========
 
 https://github.com/vanhauser-thc/afl-dyninst
+ - updated the README for guidance to build against dyninst version 10
+ - added support for dyninst version 10
  - added -x performance optimization options, before this afl-dyninst was meh,
    now it is OK. It supports 3 levels: -x (+45%, -xx additional +45%,
     -xxx additional ~3% but so far only on intel x64)

@@ -1,4 +1,4 @@
-American Fuzzy Lop + Dyninst == AFL Fuzzing blackbox binaries
+# American Fuzzy Lop + Dyninst == AFL Fuzzing blackbox binaries
 
 The tool has two parts. The instrumentation tool and the instrumentation 
 library. Instrumentation library has an initialization callback and basic 
@@ -9,8 +9,22 @@ inserting callbacks for each basic block and an initialization
 callback either at _init or at specified entry point.
 
 
-Commandline options
--------------------
+## Building / Compiling
+
+0. Clone, compile and install dyninst: https://github.com/dyninst/dyninst/
+
+Note that you can also use dyninst 9.3.2, its actually less hassle, but has less platform support. And different bugs :)
+
+1. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
+
+if you installed dyninst 10.x or from github you also have to set DYNINST_BUILD set DYNINST_OPT to $(DYNINST10)
+
+2. make
+
+3. make install
+
+
+## Commandline options
 
 Usage: ./afl-dyninst-dfvD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>
    -i: input binary 
@@ -88,17 +102,7 @@ level 3 (-xxx) gives only a very small additional speed and works differently,
  this is a good idea when you run into dyninst bugs.
 
 
-Compiling:
-----------
-
-0. Clone, compile and install dyninst: https://github.com/dyninst/dyninst/
-1. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
-2. make
-3. make install
-
-
-Example of running the tool
----------------------------
+## Example of running the tool
 
 Dyninst requires DYNINSTAPI_RT_LIB environment variable to point to the location
 of libdyninstAPI_RT.so.
@@ -111,13 +115,12 @@ Inserting init callback.
 Saving the instrumented binary to ./rar_ins...
 All done! Happy fuzzing!
 
-Here we are instrumenting  the rar binary with entrypoint at 0x4034c0
+Here we are instrumenting the rar binary with entrypoint at 0x4034c0
 (manualy found address of main), skipping the first 100 basic blocks 
 and outputing to rar_ins. 
 
 
-Running AFL on instrumented binary
-----------------------------------
+## Running AFL on instrumented binary
 
 NOTE: The instrumentation library "libDyninst.so" must be available in the current working
 directory or LD_LIBRARY_PATH as that is where the instrumented binary will be looking for it.
