@@ -37,7 +37,7 @@ cd /usr/lib/x86_64-linux-gnu && for i in libboost*.so libboost*.a; do
   ln -s $i $n
 done
 ```
-5. now clone dyninst; mkdir build; cd build; cmake ..; make; make install
+5. git clone https://github.com/dyninst/dyninst ; mkdir build ; cd build ; cmake .. ; make ; make install
 
 
 ## Commandline options
