@@ -24,15 +24,25 @@ if you built dyninst 10.x or from directly from github: you also have to set DYN
 3. make install
 
 
-*NOTE:* building dyninst10 is a pain. I recommend the following steps:
+### Building dyninst 10
+
+building dyninst10 is a pain. I recommend the following steps:
 1. remove elfutils if installed as distribution package
 2. download the newest elfutils, make and (!) make install
-
+3. install libboost-all-dev for your distribution
+4. execute (depending where your libboost is installed, for me its /usr/lib/x86_64-linux-gnu):
+```
+cd /usr/lib/x86_64-linux-gnu && for i in libboost*.so libboost*.a; do
+  n=`echo $i|sed 's/\./-mt./'`
+  ln -s $i $n
+done
+```
+5. now clone dyninst; mkdir build; cd build; cmake ..; make; make install
 
 
 ## Commandline options
 
-Usage: ./afl-dyninst-dfvD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>
+Usage: ./afl-dyninst-dfvD -i INPUT_BINARY -o OUTPUT_BINARY -l INPUT_LIBRARY -e ADDRESS -E ADDRESS -s NUMBER -S FUNCNAME -m SIZE
    -i: input binary 
    -o: output binary
    -d: do not instrument the binary, only supplied libraries
@@ -69,11 +79,11 @@ argument to __libc_start_main.
 Switch -E is used to specify addresses that should force a clean exit
 when reached. This can speed up the fuzzing tremendously.
 
-Switch -s instructs afl-dyninst to skip the first <number> of basic
-blocks. Currently, it is used to work around a bug in Dyninst
-but doubles as an optimization option, as skipping the basic blocks 
-of the initialization routines makes things run faster. If the instrumented
-binary is crashing by itself, try skiping a number of blocks.
+Switch -s instructs afl-dyninst to skip the first NUMBER of basic blocks. 
+Currently, it is used to work around a bug in Dyninst but doubles as an
+optimization option, as skipping the basic blocks of the initialization
+routines makes things run faster.  If the instrumented binary is crashing by
+itself, try skiping a number of blocks.
 
 Switch -r allows you to specify a path to the library that is loaded
 via dlopen() at runtime. Instrumented runtime libraries will be 
