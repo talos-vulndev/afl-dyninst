@@ -19,6 +19,9 @@ Note that you can also use dyninst 9.3.2, its actually less hassle, but has less
 
 if you built dyninst 10.x or from directly from github: you also have to set DYNINST_BUILD to the .../dyninst/build directory and then set DYNINST_OPT to $(DYNINST10)
 
+#### *NOTE* I recommend to stay at the github state at about July 2018 for the moment (eg. commit hash 6a71517fb076390ef2c00b4df1dbc5b0607bb5fe)
+#### dyninst 10 is not stable currently!
+
 2. make
 
 3. make install
