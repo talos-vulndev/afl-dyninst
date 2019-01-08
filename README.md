@@ -45,7 +45,7 @@ done
 
 ## Commandline options
 
-Usage: ./afl-dyninst-dfvD -i INPUT_BINARY -o OUTPUT_BINARY -l INPUT_LIBRARY -e ADDRESS -E ADDRESS -s NUMBER -S FUNCNAME -m SIZE
+Usage: ./afl-dyninst -dfvD -i INPUT_BINARY -o OUTPUT_BINARY -l INPUT_LIBRARY -e ADDRESS -E ADDRESS -s NUMBER -S FUNCNAME -m SIZE
    -i: input binary 
    -o: output binary
    -d: do not instrument the binary, only supplied libraries
