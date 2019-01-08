@@ -44,7 +44,7 @@ done
 
 
 ## Commandline options
-
+```
 Usage: ./afl-dyninst -dfvD -i INPUT_BINARY -o OUTPUT_BINARY -l INPUT_LIBRARY -e ADDRESS -E ADDRESS -s NUMBER -S FUNCNAME -m SIZE
    -i: input binary 
    -o: output binary
@@ -65,6 +65,7 @@ Usage: ./afl-dyninst -dfvD -i INPUT_BINARY -o OUTPUT_BINARY -l INPUT_LIBRARY -e 
        level 3 replaces how basic block coverage works and can be tried if
        normal mode or level 1 or 2 lead to crashes randomly.
    -v: verbose output
+```
 
 Switch -l is used to supply the names of the libraries that should 
 be instrumented along the binary. Instrumented libraries will be copied
