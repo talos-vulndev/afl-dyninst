@@ -26,6 +26,10 @@ if you built dyninst 10.x or from directly from github: you also have to set DYN
 
 3. make install
 
+4. Download and install afl++ from https://github.com/vanhauser-thc/AFLplusplus
+It's an up to date and enhanced version to the original afl with a better
+performance, new features and bugfixes.
+
 
 ### Building dyninst 10
 
