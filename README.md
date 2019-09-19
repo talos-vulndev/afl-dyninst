@@ -4,6 +4,7 @@ The tool has two parts. The instrumentation tool and the instrumentation
 library. Instrumentation library has an initialization callback and basic 
 block callback functions which are designed to emulate what AFL is doing
 with afl-gcc/afl-g++/afl-as. 
+
 Instrumentation tool (afl-dyninst) instruments the supplied binary by
 inserting callbacks for each basic block and an initialization 
 callback either at _init or at specified entry point.
@@ -13,35 +14,33 @@ callback either at _init or at specified entry point.
 
 0. Clone, compile and install dyninst: https://github.com/dyninst/dyninst/
 
-Note that you can also use dyninst 9.3.2, its actually less hassle, but has less platform support. And different bugs :)
+Note that you could also use dyninst 9.3.2, but has less platform support and
+quite a few bugs. For using dyninst 9.x you have to edit the Makefile
+Using at least 10.0.1 is highly recommended.
+
 
 1. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
-
-if you built dyninst 10.x or from directly from github: you also have to set DYNINST_BUILD to the .../dyninst/build directory and then set DYNINST_OPT to $(DYNINST10)
-
-#### *NOTE* I recommend to stay at the github state at about July 2018 for the moment (eg. commit hash 6a71517fb076390ef2c00b4df1dbc5b0607bb5fe)
-#### dyninst 10 is not stable currently!
 
 2. make
 
 3. make install
 
 4. Download and install afl++ from https://github.com/vanhauser-thc/AFLplusplus
-It's an up to date and enhanced version to the original afl with a better
+It's an up to date and enhanced version to the original afl with better
 performance, new features and bugfixes.
 
 
 ### Building dyninst 10
 
 building dyninst10 is a pain. I recommend the following steps:
-1. remove elfutils if installed as distribution package
+1. remove elfutils if installed as a distribution package
 2. download the newest elfutils, make and (!) make install
 3. install libboost-all-dev for your distribution
 4. execute (depending where your libboost is installed, for me its /usr/lib/x86_64-linux-gnu):
-```
+```shell
 cd /usr/lib/x86_64-linux-gnu && for i in libboost*.so libboost*.a; do
   n=`echo $i|sed 's/\./-mt./'`
-  ln -s $i $n
+  ln -s $i $n 2> /dev/null
 done
 ```
 5. git clone https://github.com/dyninst/dyninst ; mkdir build ; cd build ; cmake .. ; make ; make install
@@ -63,11 +62,8 @@ Usage: ./afl-dyninst -dfvD -i INPUT_BINARY -o OUTPUT_BINARY -l INPUT_LIBRARY -e 
    -S: do not instrument this function (repeat for more than one)
    -D: instrument fork server and forced exit functions but no basic blocks
    -x: experimental performance modes (can be set up to three times)
-         level 1: ~40-50%% improvement
-         level 2: ~100%% vs normal, ~40%% vs level 1
-         level 3: ~110%% vs normal, ~5%% vs level 2
-       level 3 replaces how basic block coverage works and can be tried if
-       normal mode or level 1 or 2 lead to crashes randomly.
+         -x (level 1) : ~40-50%% improvement
+         -xx (level 2): ~100%% vs normal, ~40%% vs level 1
    -v: verbose output
 ```
 
@@ -116,14 +112,9 @@ basic block instrumentation. That would serve no purpose - unless there is
 another interesting tool coming up: afl-pin (already available at
 https://github.com/vanhauser-thc/afl-pin) and afl-dynamorio (wip)
 
-Switch -x enables performance modes, -x level 1, -xx level 2 and  -xxx level 3
-level 3 is only availble for intel x64 and can either save your ass or not
-work for you whatsoever.
+Switch -x enables performance modes, -x is level 1 and -xx is level 2.
 level 1 (-x) is highly recommended (+50%).
 level 2 (-xx) gives an additonal 40% but removes (usually unnecessary) precautions
-level 3 (-xxx) gives only a very small additional speed and works differently,
- it basically replaces the instrumented instructions by dyninst with own ones.
- this is a good idea when you run into dyninst bugs.
 
 
 ## Example of running the tool
@@ -132,28 +123,33 @@ Dyninst requires DYNINSTAPI_RT_LIB environment variable to point to the location
 of libdyninstAPI_RT.so.
 
 $ export DYNINSTAPI_RT_LIB=/usr/local/lib/libdyninstAPI_RT.so
-$ ./afl-dyninst -i ./rar -o ./rar_ins -e 0x4034c0 -s 100
+$ ./afl-dyninst -i ./unrar -o ./rar_ins -e 0x4034c0 -s 10
 Skipping library: libAflDyninst.so
 Instrumenting module: DEFAULT_MODULE
 Inserting init callback.
-Saving the instrumented binary to ./rar_ins...
+Saving the instrumented binary to ./unrar_ins...
 All done! Happy fuzzing!
 
 Here we are instrumenting the rar binary with entrypoint at 0x4034c0
-(manualy found address of main), skipping the first 100 basic blocks 
-and outputing to rar_ins. 
+(manually found address of main), skipping the first 10 basic blocks 
+and outputing to unrar_ins
+
+You can also use the afl-dyninst.sh helper script which sets the required
+environment variables for you.
 
 
-## Running AFL on instrumented binary
+## Running AFL on the instrumented binary
 
 NOTE: The instrumentation library "libDyninst.so" must be available in the current working
 directory or LD_LIBRARY_PATH as that is where the instrumented binary will be looking for it.
 
-Since AFL checks if the binary has been instrumented by afl-gcc,AFL_SKIP_BIN_CHECK environment 
-variable needs to be set. No modifications to AFL it self is needed. 
+Since AFL checks if the binary has been instrumented by afl-gcc, the
+AFL_SKIP_BIN_CHECK environment variable needs to be set.
+No modifications to AFL itself is needed. 
 $ export AFL_SKIP_BIN_CHECK=1
 Then, AFL can be run as usual:
 $ afl-fuzz -i testcases/archives/common/gzip/ -o test_gzip -- ./gzip_ins -d -c 
 
-Note that there are the helper scripts afl-fuzz-dyninst.sh and afl-dyninst.sh for you which set the
-required environment variables for you.
+You can also use the afl-fuzz-dyninst.sh helper script which sets the required
+environment variables for you.
+

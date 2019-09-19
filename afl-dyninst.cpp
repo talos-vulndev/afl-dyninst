@@ -40,7 +40,7 @@ set < string > instrumentLibraries;
 set < string > runtimeLibraries;
 set < string > skipAddresses;
 set < unsigned long > exitAddresses;
-unsigned int bbMinSize = 1;
+unsigned int bbMinSize = 10;
 int bbSkip = 0, performance = 0;
 bool skipMainModule = false, do_bb = true, dynfix = false;
 unsigned long int insertions = 0;
@@ -63,16 +63,13 @@ static const char *USAGE = "-dfvxD -i <binary> -o <binary> -l <library> -e <addr
   -e: entry point address to patch (required for stripped binaries)\n \
   -E: exit point - force exit(0) at this address (repeat for more than one)\n \
   -s: number of initial basic blocks to skip in binary\n \
-  -m: minimum size of a basic bock to instrument (default: 1)\n \
+  -m: minimum size of a basic bock to instrument (default: 10)\n \
   -f: try to fix a dyninst bug that leads to crashes (loss of 20%% performance)\n \
   -S: do not instrument this function (repeat for more than one)\n \
   -D: instrument only a simple fork server and also forced exit functions\n \
-  -x: experimental performance modes (can be set up to three times)\n \
-        level 1: ~40-50%% improvement\n \
-        level 2: ~100%% vs normal, ~40%% vs level 1\n \
-        level 3: ~110%% vs normal, ~5%% vs level 2\n \
-      level 3 replaces how basic block coverage works and can be tried if\n \
-      normal mode or level 1 or 2 lead to crashes randomly.\n \
+  -x: experimental performance modes (can be set up to two times)\n \
+        -x (level 1):  ~40-50%% improvement\n \
+        -xx (level 2): ~100%% vs normal, ~40%% vs level 1\n \
   -v: verbose output\n";
 
 bool parseOptions(int argc, char **argv) {
@@ -82,6 +79,7 @@ bool parseOptions(int argc, char **argv) {
     switch ((char) c) {
     case 'x':
       performance++;
+/*
       if (performance == 3) {
 #if ( __amd64__ || __x86_64__ )
         fprintf(stderr, "Warning: performance level 3 is currently totally experimental\n");
@@ -89,9 +87,9 @@ bool parseOptions(int argc, char **argv) {
         fprintf(stderr, "Warning: maximum performance level for non-intelx64 x86 is 2\n");
         performance = 2;
 #endif
-      } else if (performance > 3) {
-        fprintf(stderr, "Warning: maximum performance level is 3\n");
-        performance = 3;
+      } else*/ if (performance > 2) {
+        fprintf(stderr, "Warning: maximum performance level is 2\n");
+        performance = 2;
       }
       break;
     case 'S':
@@ -540,7 +538,9 @@ int main(int argc, char **argv) {
 
     (*moduleIter)->getName(moduleName, 1024);
     if ((*moduleIter)->isSharedLib()) {
-      if (instrumentLibraries.find(moduleName) == instrumentLibraries.end()) {
+      if (instrumentLibraries.find(moduleName) == instrumentLibraries.end()
+          && string(moduleName).find(".so") != string::npos
+         ) {
         cout << "Skipping library: " << moduleName << endl;
         continue;
       }

@@ -1,18 +1,19 @@
 # EDIT: path to  dyninst binaries
 DYNINST_ROOT = /usr/local
 
-# EDIT: you must set this to your dyninst build directory if you build with v10
-DYNINST_BUILD = /path/to/dyninst/build
+# EDIT: you must set this to your dyninst build directory
+DYNINST_BUILD = /path/to/dyninst/build-directory
+#DYNINST_BUILD = /prg/tmp/dyninst/build-10.0.1
+
+# EDIT: path to afl src if you do not set a symlink from ./afl to the afl directory
+AFL_ROOT = ./afl 
 
 # better dont touch these
 DYNINST9=-lcommon -liberty -lboost_system
-DYNINST10=-I$(DYNINST_BUILD)/tbb/src/TBB/src/include -lboost_system -L$(DYNINST_BUILD)/tbb/lib -ltbb -Wl,-rpath $(DYNINST_BUILD)/tbb/lib
+DYNINST10=-I$(DYNINST_BUILD)/tbb/src/TBB/src/include -lboost_system -ltbb
 
 # EDIT: set this to either DYNINST9 or DYNINST10 depending on what you installed
-DYNINST_OPT = $(DYNINST9)
-
-# path to afl src 
-AFL_ROOT = ./afl 
+DYNINST_OPT = $(DYNINST10)
 
 # path to libelf and libdwarf
 DEPS_ROOT = /usr/local
@@ -20,12 +21,12 @@ DEPS_ROOT = /usr/local
 # where to install
 INSTALL_ROOT = /usr/local
 
-CXX = g++
+#CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++11 -g -O3 -std=c++11 
 LIBFLAGS = -fpic -shared
 
 CC = gcc
-CFLAGS = -Wall -pedantic -g -std=gnu99
+CFLAGS = -Wall -O3 -g -std=gnu99
 
 all: afl-dyninst libAflDyninst.so
 
