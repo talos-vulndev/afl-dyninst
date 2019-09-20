@@ -12,22 +12,23 @@ callback either at _init or at specified entry point.
 
 ## Building / Compiling
 
-0. Clone, compile and install dyninst: https://github.com/dyninst/dyninst/
+1. Clone, compile and install dyninst: https://github.com/dyninst/dyninst/
 
 Note that you could also use dyninst 9.3.2, but has less platform support and
 quite a few bugs. For using dyninst 9.x you have to edit the Makefile
 Using at least 10.0.1 is highly recommended.
 
+NOTE: You should use at least dyninst 10.0.1 !
 
-1. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
-
-2. make
-
-3. make install
-
-4. Download and install afl++ from https://github.com/vanhauser-thc/AFLplusplus
+2. Download and install afl++ from https://github.com/vanhauser-thc/AFLplusplus
 It's an up to date and enhanced version to the original afl with better
 performance, new features and bugfixes.
+
+3. Edit the Makefile and set DYNINST_ROOT and AFL_ROOT to appropriate paths. 
+
+4. make
+
+5. sudo make install
 
 
 ### Building dyninst 10
@@ -117,11 +118,12 @@ level 1 (-x) is highly recommended (+50%).
 level 2 (-xx) gives an additonal 40% but removes (usually unnecessary) precautions
 
 
-## Example of running the tool
+## Example of instrumenting a target binary
 
 Dyninst requires DYNINSTAPI_RT_LIB environment variable to point to the location
 of libdyninstAPI_RT.so.
 
+```
 $ export DYNINSTAPI_RT_LIB=/usr/local/lib/libdyninstAPI_RT.so
 $ ./afl-dyninst -i ./unrar -o ./rar_ins -e 0x4034c0 -s 10
 Skipping library: libAflDyninst.so
@@ -129,13 +131,17 @@ Instrumenting module: DEFAULT_MODULE
 Inserting init callback.
 Saving the instrumented binary to ./unrar_ins...
 All done! Happy fuzzing!
+```
 
 Here we are instrumenting the rar binary with entrypoint at 0x4034c0
 (manually found address of main), skipping the first 10 basic blocks 
 and outputing to unrar_ins
 
 You can also use the afl-dyninst.sh helper script which sets the required
-environment variables for you.
+environment variables for you:
+```
+$ ./afl-dyninst.sh -i ./unrar -o ./rar_ins -e 0x4034c0 -s 10
+```
 
 
 ## Running AFL on the instrumented binary
@@ -146,10 +152,36 @@ directory or LD_LIBRARY_PATH as that is where the instrumented binary will be lo
 Since AFL checks if the binary has been instrumented by afl-gcc, the
 AFL_SKIP_BIN_CHECK environment variable needs to be set.
 No modifications to AFL itself is needed. 
+```
 $ export AFL_SKIP_BIN_CHECK=1
+```
 Then, AFL can be run as usual:
+```
 $ afl-fuzz -i testcases/archives/common/gzip/ -o test_gzip -- ./gzip_ins -d -c 
+```
 
 You can also use the afl-fuzz-dyninst.sh helper script which sets the required
 environment variables for you.
+```
+$ afl-fuzz-dyninst.sh -i testcases/archives/common/gzip/ -o test_gzip -- ./gzip_ins -d -c 
+```
 
+## Problems
+
+After instrumenting the target binary always check if it works.
+Dyninst is making big changes to the code, and hence more often than not
+things are not working anymore.
+
+Problem 1: The binary does not work (crashes or hangs)
+Solution: increase the -m parameter. -m 8 is the minimum recommended, on some
+          targets -m 16 is required etc.
+
+Problem 2: Basically every fuzzing test case is reported as crash although it
+           does not when running it from the command line
+Solution: This happens if the target is using throw/catch, and dyninst's
+          modification result in that the cought exception is not resetted and
+          hence abort() is triggered.
+          No solution to this issue is known yet.
+          Binary editing the target binary to perform _exit(0) would help though.
+
+More problems? Create an issue at https://github.com/vanhauser-thc/afl-dyninst
