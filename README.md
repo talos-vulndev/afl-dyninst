@@ -175,6 +175,7 @@ things are not working anymore.
 Problem 1: The binary does not work (crashes or hangs)
 Solution: increase the -m parameter. -m 8 is the minimum recommended, on some
           targets -m 16 is required etc.
+          You can also try to remove -x performance enhancers.
 
 Problem 2: Basically every fuzzing test case is reported as crash although it
            does not when running it from the command line
