@@ -26,6 +26,7 @@ afl-dyninst: afl-dyninst.o
 		-o afl-dyninst afl-dyninst.o \
 		-lcommon \
 		-liberty \
+		-lboost_system \
 		-ldyninstAPI 
 
 libAflDyninst.so: libAflDyninst.cpp
