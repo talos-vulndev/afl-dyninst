@@ -12,13 +12,31 @@ callback either at _init or at specified entry point.
 
 ## Building / Compiling
 
+### docker
+
+simply run
+```
+docker build .
+```
+which will take ~25 minutes.
+Afterwards you have two docker containers you can run directly.
+
+One for instrumenting binaries:
+```
+docker run afl-dyninst
+```
+And one for fuzzing the instrumented binaries:
+```
+docker run afl-fuzz-dyninst
+```
+
+### on your own
+
 1. Clone, compile and install dyninst: https://github.com/dyninst/dyninst/
 
 Note that you could also use dyninst 9.3.2, but has less platform support and
 quite a few bugs. For using dyninst 9.x you have to edit the Makefile
-Using at least 10.0.1 is highly recommended.
-
-NOTE: You should use at least dyninst 10.0.1 !
+Using at least 10.1.0 is highly recommended!
 
 2. Download and install afl++ from https://github.com/vanhauser-thc/AFLplusplus
 It's an up to date and enhanced version to the original afl with better
@@ -33,18 +51,20 @@ performance, new features and bugfixes.
 
 ### Building dyninst 10
 
-building dyninst10 is a pain. I recommend the following steps:
+Building dyninst10 can be a pain.
+If you are not on debian-testing or kali-rolling, I recommend the following steps:
 1. remove elfutils if installed as a distribution package
-2. download the newest elfutils, make and (!) make install
-3. install libboost-all-dev for your distribution
-4. execute (depending where your libboost is installed, for me its /usr/lib/x86_64-linux-gnu):
+2. install libboost-all-dev for your distribution
+3. execute (depending where your libboost is installed, for me its /usr/lib/x86_64-linux-gnu):
 ```shell
 cd /usr/lib/x86_64-linux-gnu && for i in libboost*.so libboost*.a; do
   n=`echo $i|sed 's/\./-mt./'`
   ln -s $i $n 2> /dev/null
 done
 ```
-5. git clone https://github.com/dyninst/dyninst ; mkdir build ; cd build ; cmake .. ; make ; make install
+4. git clone https://github.com/dyninst/dyninst ; mkdir build ; cd build ; cmake .. ; make ; make install
+If dyninst complains about any missing packages - install them.
+Depending on the age of your Linux OS you can try to use packages from your distro, and install from source otherwise.
 
 
 ## Commandline options
@@ -173,12 +193,15 @@ Dyninst is making big changes to the code, and hence more often than not
 things are not working anymore.
 
 Problem 1: The binary does not work (crashes or hangs)
+
 Solution: increase the -m parameter. -m 8 is the minimum recommended, on some
           targets -m 16 is required etc.
-          You can also try to remove -x performance enhancers.
+          You can also try to remove -x performance enhancers
+
 
 Problem 2: Basically every fuzzing test case is reported as crash although it
            does not when running it from the command line
+
 Solution: This happens if the target is using throw/catch, and dyninst's
           modification result in that the cought exception is not resetted and
           hence abort() is triggered.

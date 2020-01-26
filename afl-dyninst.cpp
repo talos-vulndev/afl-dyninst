@@ -54,7 +54,7 @@ const char *functions[] = { "main", "_main", "_initproc", "_init", "start", "_st
 const char *instLibrary = "libAflDyninst.so";
 
 static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:Dx";
-static const char *USAGE = "-dfvxD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>\n \
+static const char *USAGE = " -dfvxD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>\n \
   -i: input binary \n \
   -o: output binary\n \
   -d: do not instrument the binary, only supplied libraries\n \
@@ -345,7 +345,7 @@ int main(int argc, char **argv) {
   char *func2patch = NULL;
   int loop;
   
-  cout << "afl-dyninst (c) 2017-2019 by Aleksandar Nikolic and Marc Heuse [https://github.com/vanhauser-thc/afl-dyninst] Apache 2.0 License" << endl;
+  cout << "afl-dyninst (c) 2017-2020 by Aleksandar Nikolic and Marc Heuse [https://github.com/vanhauser-thc/afl-dyninst] Apache 2.0 License" << endl;
 
   if (argc < 3 || strncmp(argv[1], "-h", 2) == 0 || strncmp(argv[1], "--h", 3) == 0) {
     cout << "Usage: " << argv[0] << USAGE;
