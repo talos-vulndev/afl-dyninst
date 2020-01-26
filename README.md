@@ -16,18 +16,12 @@ callback either at _init or at specified entry point.
 
 simply run
 ```
-docker build .
+docker build -t afl-dyninst .
 ```
 which will take ~25 minutes.
-Afterwards you have two docker containers you can run directly.
-
-One for instrumenting binaries:
+Afterwards you have a containers with afl-dyninst and afl++:
 ```
-docker run afl-dyninst
-```
-And one for fuzzing the instrumented binaries:
-```
-docker run afl-fuzz-dyninst
+docker run -ti afl-dyninst
 ```
 
 ### on your own
