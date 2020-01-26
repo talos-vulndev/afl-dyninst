@@ -1,5 +1,5 @@
-FROM kalilinux/kali-rolling AS afl-dyninst-base
-MAINTAINER mh@mh-sec.de
+FROM kalilinux/kali-rolling AS afl-dyninst
+MAINTAINER vh@thc.org
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade && apt-get install -y \
@@ -48,11 +48,3 @@ RUN git clone https://github.com/vanhauser-thc/afl-dyninst \
         && echo "export DYNINSTAPI_RT_LIB=/usr/local/lib/libdyninstAPI_RT.so" >> .bashrc
 
 ENV DYNINSTAPI_RT_LIB /usr/local/lib/libdyninstAPI_RT.so
-
-# the afl-dyninst image:
-FROM afl-dyninst-base AS afl-dyninst
-CMD afl-dyninst.sh
-
-# the afl-fuzz-dyninst image (with afl++):
-FROM afl-dyninst-base AS afl-fuzz-dyninst
-CMD afl-fuzz-dyninst.sh
