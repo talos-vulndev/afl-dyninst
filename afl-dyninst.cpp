@@ -39,6 +39,7 @@ set < string > todo;
 set < string > instrumentLibraries;
 set < string > runtimeLibraries;
 set < string > skipAddresses;
+set < string > onlyAddresses;
 set < unsigned long > exitAddresses;
 unsigned int bbMinSize = 10;
 int bbSkip = 0, performance = 0;
@@ -53,8 +54,8 @@ const char *functions[] = { "main", "_main", "_initproc", "_init", "start", "_st
 
 const char *instLibrary = "libAflDyninst.so";
 
-static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:Dx";
-static const char *USAGE = " -dfvxD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>\n \
+static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:I:Dx";
+static const char *USAGE = " -dfvxD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -I <funcname> -m <size>\n \
   -i: input binary \n \
   -o: output binary\n \
   -d: do not instrument the binary, only supplied libraries\n \
@@ -65,6 +66,7 @@ static const char *USAGE = " -dfvxD -i <binary> -o <binary> -l <library> -e <add
   -s: number of initial basic blocks to skip in binary\n \
   -m: minimum size of a basic bock to instrument (default: 10)\n \
   -f: try to fix a dyninst bug that leads to crashes (loss of 20%% performance)\n \
+  -I: only instrument this function and nothing else (repeat for more than one)\n \
   -S: do not instrument this function (repeat for more than one)\n \
   -D: instrument only a simple fork server and also forced exit functions\n \
   -x: experimental performance modes (can be set up to two times)\n \
@@ -91,6 +93,9 @@ bool parseOptions(int argc, char **argv) {
         fprintf(stderr, "Warning: maximum performance level is 2\n");
         performance = 2;
       }
+      break;
+    case 'I':
+      onlyAddresses.insert(optarg);
       break;
     case 'S':
       skipAddresses.insert(optarg);
@@ -562,14 +567,27 @@ int main(int argc, char **argv) {
         int do_patch = 1;
 
         curFunc->getName(funcName, 1024);
-        if (string(funcName) == string("_init") || string(funcName) == string("__libc_csu_init") || string(funcName) == string("_start")
-          )
+        if (string(funcName) == string("_init") || string(funcName) == string("__libc_csu_init") || string(funcName) == string("_start")) {
+          if (verbose)
+            cout << "Skipping instrumenting function " << funcName << endl;
           continue;             // here's a bug on hlt // XXX: check what happens if removed
+        }
         if (!skipAddresses.empty()) {
           set < string >::iterator saiter;
           for (saiter = skipAddresses.begin(); saiter != skipAddresses.end() && do_patch == 1; saiter++)
             if (*saiter == string(funcName))
               do_patch = 0;
+          if (do_patch == 0) {
+            cout << "Skipping instrumenting function " << funcName << endl;
+            continue;
+          }
+        }
+        if (!onlyAddresses.empty()) {
+          do_patch = 0;
+          set < string >::iterator saiter;
+          for (saiter = onlyAddresses.begin(); saiter != onlyAddresses.end() && do_patch == 1; saiter++)
+            if (*saiter == string(funcName))
+              do_patch = 1;
           if (do_patch == 0) {
             cout << "Skipping instrumenting function " << funcName << endl;
             continue;

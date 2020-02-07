@@ -63,21 +63,22 @@ Depending on the age of your Linux OS you can try to use packages from your dist
 
 ## Commandline options
 ```
-Usage: ./afl-dyninst -dfvD -i INPUT_BINARY -o OUTPUT_BINARY -l INPUT_LIBRARY -e ADDRESS -E ADDRESS -s NUMBER -S FUNCNAME -m SIZE
-   -i: input binary 
-   -o: output binary
+Usage: afl-dyninst -dfvxD -i binary -o  binary -l library -e address -E address -s number -S funcname -I funcname -m size
+   -i: input binary program
+   -o: output binary program
    -d: do not instrument the binary, only supplied libraries
    -l: linked library to instrument (repeat for more than one)
    -r: runtime library to instrument (path to, repeat for more than one)
    -e: entry point address to patch (required for stripped binaries)
    -E: exit point - force exit(0) at this address (repeat for more than one)
    -s: number of initial basic blocks to skip in binary
-   -m: minimum size of a basic bock to instrument (default: 1)
-   -f: try to fix a dyninst bug that leads to crashes
+   -m: minimum size of a basic bock to instrument (default: 10)
+   -f: try to fix a dyninst bug that leads to crashes (loss of 20%% performance)
+   -I: only instrument this function and nothing else (repeat for more than one)
    -S: do not instrument this function (repeat for more than one)
-   -D: instrument fork server and forced exit functions but no basic blocks
-   -x: experimental performance modes (can be set up to three times)
-         -x (level 1) : ~40-50%% improvement
+   -D: instrument only a simple fork server and also forced exit functions
+   -x: experimental performance modes (can be set up to two times)
+         -x (level 1):  ~40-50%% improvement
          -xx (level 2): ~100%% vs normal, ~40%% vs level 1
    -v: verbose output
 ```
@@ -104,7 +105,7 @@ optimization option, as skipping the basic blocks of the initialization
 routines makes things run faster.  If the instrumented binary is crashing by
 itself, try skiping a number of blocks.
 
-Switch -r allows you to specify a path to the library that is loaded
+Switch -r allows you to specify a path to a library that is loaded
 via dlopen() at runtime. Instrumented runtime libraries will be 
 written to the same location with a ".ins" suffix as not to overwrite
 the original ones. Make sure to backup the originals and then rename the

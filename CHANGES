@@ -2,6 +2,7 @@ Changelog
 =========
 
 https://github.com/vanhauser-thc/afl-dyninst
+ - added -I option (only instrument specific functions)
  - updated the README for guidance to build against dyninst version 10
  - added support for dyninst version 10
  - added -x performance optimization options, before this afl-dyninst was meh,
