@@ -2,7 +2,7 @@ FROM kalilinux/kali-rolling AS afl-dyninst
 MAINTAINER vh@thc.org
 
 ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get upgrade && apt-get install -y \
+RUN apt-get update && apt-get upgrade && apt-get -y install \
         build-essential \
         gcc \
         g++ \
