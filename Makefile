@@ -38,7 +38,7 @@ afl-dyninst:	afl-dyninst.o
 		-ldyninstAPI
 
 libAflDyninst.so: libAflDyninst.cpp
-	$(CXX) -O3 -std=c++11 $(LIBFLAGS) -I$(AFL_ROOT) -I$(DEPS_ROOT)/include libAflDyninst.cpp -o libAflDyninst.so
+	$(CXX) -O3 -std=c++11 $(LIBFLAGS) -I$(AFL_ROOT) -I$(DYNINST_ROOT)/include -I$(DEPS_ROOT)/include libAflDyninst.cpp -o libAflDyninst.so
 
 afl-dyninst.o: afl-dyninst.cpp
 	$(CXX) $(CXXFLAGS) $(DYNINST_OPT) -I$(DEPS_ROOT)/include -I$(DYNINST_ROOT)/include  -c afl-dyninst.cpp

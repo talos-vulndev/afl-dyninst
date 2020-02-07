@@ -320,15 +320,21 @@ bool insertBBCallback(BPatch_addressSpace *appBin, BPatch_function *curFunc, cha
       BPatch_constExpr bbId(randID);
 
       instArgs.push_back(&bbId);
+#if (DYNINST_MAJOR_VERSION < 10)
       BPatch_funcCallExpr instIncExpr1(*save_rdi, instArgs1);
       BPatch_funcCallExpr instIncExpr3(*restore_rdi, instArgs1);
+#endif
       BPatch_funcCallExpr instIncExpr(*instBBIncFunc, instArgs);
 
+#if (DYNINST_MAJOR_VERSION < 10)
       if (dynfix == true)
         handle = appBin->insertSnippet(instIncExpr1, *bbEntry, BPatch_callBefore, BPatch_firstSnippet);
+#endif
       handle = appBin->insertSnippet(instIncExpr, *bbEntry, BPatch_callBefore);
+#if (DYNINST_MAJOR_VERSION < 10)
       if (dynfix == true)
         handle = appBin->insertSnippet(instIncExpr3, *bbEntry, BPatch_callBefore, BPatch_lastSnippet);
+#endif
     }
 
     if (!handle) {
@@ -445,8 +451,10 @@ int main(int argc, char **argv) {
   /* Find code coverage functions in the instrumentation library */
   BPatch_function *initAflForkServer;
 
+#if (DYNINST_MAJOR_VERSION < 10)
   save_rdi = findFuncByName(appImage, (char *)"save_rdi");
   restore_rdi = findFuncByName(appImage, (char *)"restore_rdi");
+#endif
   BPatch_function *bbCallback = findFuncByName(appImage, (char *)"bbCallback");
   BPatch_function *forceCleanExit = findFuncByName(appImage, (char *)"forceCleanExit");
 
@@ -458,7 +466,11 @@ int main(int argc, char **argv) {
   } else
     initAflForkServer = findFuncByName(appImage, (char *)"initOnlyAflForkServer");
 
-  if (!initAflForkServer || !bbCallback || !save_rdi || !restore_rdi || !forceCleanExit) {
+  if (!initAflForkServer || !bbCallback || !forceCleanExit
+#if (DYNINST_MAJOR_VERSION < 10)
+      || !save_rdi || !restore_rdi
+#endif
+  ) {
     cerr << "Instrumentation library lacks callbacks!" << endl;
     return EXIT_FAILURE;
   }
@@ -467,7 +479,6 @@ int main(int argc, char **argv) {
 
   // if an entrypoint was set then find function, else find _init
   BPatch_function *funcToPatch = NULL;
-
   if (entryPoint == 0 && entryPointName == NULL) {
     if (func2patch == NULL) {
       cerr << "Couldn't locate _init, specify entry point manually with -e 0xaddr" << endl;
@@ -536,20 +547,39 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  bool skip_until_next_library = false;
+
   for (moduleIter = modules->begin(); moduleIter != modules->end(); ++moduleIter) {
     char moduleName[1024];
 
     (*moduleIter)->getName(moduleName, 1024);
-    if ((*moduleIter)->isSharedLib()) {
-      if (instrumentLibraries.find(moduleName) == instrumentLibraries.end() && string(moduleName).find(".so") != string::npos) {
+    if ((*moduleIter)->isSharedLib() && (strstr(moduleName, ".so.") != NULL || (strlen(moduleName) > 3 && strncmp(moduleName + strlen(moduleName) - 3, ".so", 3) == 0))) {
+      bool skip_this_lib = true;
+      for (std::set<std::string>::iterator libIter = instrumentLibraries.begin(); libIter != instrumentLibraries.end(); ++libIter)
+        if (strncmp(libIter->c_str(), moduleName, strlen(libIter->c_str())) == 0)
+          skip_this_lib = false;
+      if (skip_this_lib == true) {
+        skip_until_next_library = true;
         cout << "Skipping library: " << moduleName << endl;
         continue;
+      } else {
+        skip_until_next_library = false;
       }
     }
 
     if (string(moduleName).find(defaultModuleName) != string::npos) {
-      if (skipMainModule)
+      if (skipMainModule) {
+        skip_until_next_library = true;
         continue;
+      } else {
+        skip_until_next_library = false;
+      }
+    }
+
+    if (skip_until_next_library == true) {
+      if (verbose)
+        cout << "Skipping " << moduleName << " because skip_until_next_library is active" << endl;
+      continue;
     }
 
     if (do_bb == true) {

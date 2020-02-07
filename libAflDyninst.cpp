@@ -1,4 +1,5 @@
 #include "config.h"
+#include "dyninstversion.h" // if this include errors, compile and install https://github.com/dyninst/dyninst
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -23,7 +24,9 @@ static unsigned short int prev_id = 0;
 static bool forkserver_installed = false;
 #if (__amd64__ || __x86_64__)
 static long saved_di;
+#if (DYNINST_MAJOR_VERSION < 10)
 register long rdi asm("di"); // the warning is fine - we need the warning because of a bug in dyninst9
+#endif
 #endif
 
 #define PRINT_ERROR(string) (void)(write(2, string, strlen(string)) + 1) // the (...+1) weirdness is so we do not get an ignoring return value warning
@@ -91,17 +94,21 @@ void bbCallback(unsigned short id) {
 
 void forceCleanExit() { exit(0); }
 
+#if (DYNINST_MAJOR_VERSION < 10)
 void save_rdi() {
 #if __amd64__ || __x86_64__
   saved_di = rdi;
 #endif
 }
+#endif
 
+#if (DYNINST_MAJOR_VERSION < 10)
 void restore_rdi() {
 #if __amd64__ || __x86_64__
   rdi = saved_di;
 #endif
 }
+#endif
 
 void initOnlyAflForkServer() {
   if (forkserver_installed == true)

@@ -2,6 +2,8 @@ Changelog
 =========
 
 https://github.com/vanhauser-thc/afl-dyninst
+ - First fix for -l option, did copy and instrument all libs
+ - Only compile dyninst9 bug workaround when necessary
  - added -I option (only instrument specific functions)
  - updated the README for guidance to build against dyninst version 10
  - added support for dyninst version 10
