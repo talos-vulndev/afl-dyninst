@@ -73,7 +73,7 @@ Usage: afl-dyninst -dfvxD -i binary -o  binary -l library -e address -E address 
    -E: exit point - force exit(0) at this address (repeat for more than one)
    -s: number of initial basic blocks to skip in binary
    -m: minimum size of a basic bock to instrument (default: 10)
-   -f: try to fix a dyninst bug that leads to crashes (loss of 20%% performance)
+   -f: try to fix a dyninst bug that leads to crashes (loss of 20%% performance, only required for dyninst9)
    -I: only instrument this function and nothing else (repeat for more than one)
    -S: do not instrument this function (repeat for more than one)
    -D: instrument only a simple fork server and also forced exit functions

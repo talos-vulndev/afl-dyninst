@@ -1,16 +1,16 @@
-#include <cstdlib>
-#include <cstdio>
-#include <iostream>
-#include <cstring>
-#include <vector>
-#include <algorithm>
 #include "config.h"
-#include <sys/types.h>
-#include <sys/shm.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
+#include <iostream>
+#include <sys/shm.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <vector>
 
 using namespace std;
 
@@ -23,16 +23,16 @@ static unsigned short int prev_id = 0;
 static bool forkserver_installed = false;
 #if (__amd64__ || __x86_64__)
 static long saved_di;
-register long rdi asm("di");  // the warning is fine - we need the warning because of a bug in dyninst
+register long rdi asm("di"); // the warning is fine - we need the warning because of a bug in dyninst9
 #endif
 
-#define PRINT_ERROR(string) (void)(write(2, string, strlen(string))+1) // the (...+1) weirdness is so we do not get an ignoring return value warning
+#define PRINT_ERROR(string) (void)(write(2, string, strlen(string)) + 1) // the (...+1) weirdness is so we do not get an ignoring return value warning
 
 void initAflForkServer() {
   if (forkserver_installed == true)
     return;
   forkserver_installed = true;
-  
+
   // we can not use fprint* stdout/stderr functions here, it fucks up some programs
   char *shm_env_var = getenv(SHM_ENV_VAR);
 
@@ -41,8 +41,8 @@ void initAflForkServer() {
     return;
   }
   shm_id = atoi(shm_env_var);
-  trace_bits = (u8 *) shmat(shm_id, NULL, 0);
-  if (trace_bits == (u8 *) - 1) {
+  trace_bits = (u8 *)shmat(shm_id, NULL, 0);
+  if (trace_bits == (u8 *)-1) {
     PRINT_ERROR("Error: shmat\n");
     return;
   }
@@ -89,9 +89,7 @@ void bbCallback(unsigned short id) {
   prev_id = id >> 1;
 }
 
-void forceCleanExit() {
-  exit(0);
-}
+void forceCleanExit() { exit(0); }
 
 void save_rdi() {
 #if __amd64__ || __x86_64__
@@ -147,14 +145,13 @@ void initOnlyAflForkServer() {
   }
 }
 
-
 void initAflForkServerVar(u8 *map) {
   // we can not use fprint* stdout/stderr functions here, it fucks up some programs
   if (forkserver_installed == true)
     return;
   forkserver_installed = true;
 
-  u8 **ptr = (u8**) map;
+  u8 **ptr = (u8 **)map;
   char *shm_env_var = getenv(SHM_ENV_VAR);
   if (!shm_env_var) {
     char buf[256];
@@ -165,8 +162,8 @@ void initAflForkServerVar(u8 *map) {
   }
 
   shm_id = atoi(shm_env_var);
-  *ptr = (u8*)shmat(shm_id, NULL, 0);
-  if ((u8*)*ptr == (u8 *) - 1) {
+  *ptr = (u8 *)shmat(shm_id, NULL, 0);
+  if ((u8 *)*ptr == (u8 *)-1) {
     PRINT_ERROR("Error: shmat\n");
     return;
   }
