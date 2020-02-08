@@ -69,7 +69,7 @@ static const char *USAGE = " -fvxD -i <binary> -o <binary> -e <address> -E <addr
   -D: instrument only a simple fork server and also forced exit functions\n \
   -x: experimental performance mode (~25-50% speed improvement)\n \
   -v: verbose output\n \
-  Note: options -l and -d have been deprecated, use -r instead.\n";
+  Note: options -l and -d have been deprecated, use -r and -D instead.\n";
 
 bool parseOptions(int argc, char **argv) {
   int c;
@@ -124,7 +124,7 @@ bool parseOptions(int argc, char **argv) {
       break;
     case 'd':
       //skipMainModule = true;
-      fprintf(stderr, "Warning: option -d has been deprecated, due various issues. Just ignore -o file :-)\n");
+      fprintf(stderr, "Warning: option -d has been deprecated, use -D instead or ignore the generated -o file.\n");
       break;
     case 'f':
 #if (__amd64__ || __x86_64__)

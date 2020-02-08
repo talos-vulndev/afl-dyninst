@@ -77,7 +77,7 @@ Usage: afl-dyninst -dfvxD -i binary -o  binary -l library -e address -E address 
    -D: instrument only a simple fork server and also forced exit functions
    -x: experimental performance mode (~25-50% speed improvement)
    -v: verbose output
-   Note: options -l and -d have been deprecated, use -r instead.
+   Note: options -l and -d have been deprecated, use -r and -D instead.
 ```
 
 Switch -e is used to manualy specify the entry point where initialization
