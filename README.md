@@ -129,7 +129,9 @@ Switch -x enables an experimental performance mode (+25-50% speed). Just try it
 and if the target crashes too often, instrument again without this. Should not
 crash though.
 
-Note that the -l and -d options have been deprecated. Use -r instead.
+Note that the -l option has been deprecated, use -r instead.
+
+Note that the -d option has been deprecated, use -D instead (or ignore the -o output file).
 
 
 ## Example of instrumenting a target binary
