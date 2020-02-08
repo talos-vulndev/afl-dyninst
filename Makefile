@@ -31,11 +31,7 @@ CFLAGS = -Wall -O3 -g -std=gnu99
 all: afl-dyninst libAflDyninst.so
 
 afl-dyninst:	afl-dyninst.o
-	$(CXX) $(CXXFLAGS) -L$(DYNINST_ROOT)/lib \
-		-L$(DEPS_ROOT)/lib \
-		-o afl-dyninst afl-dyninst.o \
-		$(DYNINST_OPT) \
-		-ldyninstAPI
+	$(CXX) $(CXXFLAGS) -L$(DYNINST_ROOT)/lib -L$(DEPS_ROOT)/lib -o afl-dyninst afl-dyninst.o $(DYNINST_OPT) -ldyninstAPI
 
 libAflDyninst.so: libAflDyninst.cpp
 	$(CXX) -O3 -std=c++11 $(LIBFLAGS) -I$(AFL_ROOT) -I$(DYNINST_ROOT)/include -I$(DEPS_ROOT)/include libAflDyninst.cpp -o libAflDyninst.so

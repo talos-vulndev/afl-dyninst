@@ -66,8 +66,6 @@ Depending on the age of your Linux OS you can try to use packages from your dist
 Usage: afl-dyninst -dfvxD -i binary -o  binary -l library -e address -E address -s number -S funcname -I funcname -m size
    -i: input binary program
    -o: output binary program
-   -d: do not instrument the binary, only supplied libraries
-   -l: linked library to instrument (repeat for more than one)
    -r: runtime library to instrument (path to, repeat for more than one)
    -e: entry point address to patch (required for stripped binaries)
    -E: exit point - force exit(0) at this address (repeat for more than one)
@@ -77,17 +75,10 @@ Usage: afl-dyninst -dfvxD -i binary -o  binary -l library -e address -E address 
    -I: only instrument this function and nothing else (repeat for more than one)
    -S: do not instrument this function (repeat for more than one)
    -D: instrument only a simple fork server and also forced exit functions
-   -x: experimental performance modes (can be set up to two times)
-         -x (level 1):  ~40-50%% improvement
-         -xx (level 2): ~100%% vs normal, ~40%% vs level 1
+   -x: experimental performance mode (~25-50% speed improvement)
    -v: verbose output
+   Note: options -l and -d have been deprecated, use -r instead.
 ```
-
-Switch -l is used to supply the names of the libraries that should 
-be instrumented along the binary. Instrumented libraries will be copied
-to the current working directory. This option can be repeated as many times
-as needed. Depending on the environment, the LD_LIBRARY_PATH should be set 
-to point to instrumented libraries while fuzzing. 
 
 Switch -e is used to manualy specify the entry point where initialization
 callback is to be inserted. For unstipped binaries, afl-dyninst defaults 
@@ -122,15 +113,23 @@ when the register is used for function parameters.
 
 Switch -S allows you to not instrument specific functions.
 This options is mainly to hunt down bugs in dyninst.
+Can be specified multiple times.
+
+Switch -I specified to only instrument specific functions.
+This option is amazing with large and threaded targets.
+Can be specified multiple times.
 
 Switch -D installs the afl fork server and forced exit functions but no
-basic block instrumentation. That would serve no purpose - unless there is
-another interesting tool coming up: afl-pin (already available at
-https://github.com/vanhauser-thc/afl-pin) and afl-dynamorio (wip)
+basic block instrumentation. That would serve no purpose - unless there are
+other tools that need that: 
+ * [https://github.com/vanhauser-thc/afl-dynamorio](https://github.com/vanhauser-thc/afl-dynamorio)
+ * [https://github.com/vanhauser-thc/afl-pin](https://github.com/vanhauser-thc/afl-pin)
 
-Switch -x enables performance modes, -x is level 1 and -xx is level 2.
-level 1 (-x) is highly recommended (+50%).
-level 2 (-xx) gives an additonal 40% but removes (usually unnecessary) precautions
+Switch -x enables an experimental performance mode (+25-50% speed). Just try it
+and if the target crashes too often, instrument again without this. Should not
+crash though.
+
+Note that the -l and -d options have been deprecated. Use -r instead.
 
 
 ## Example of instrumenting a target binary
@@ -140,7 +139,7 @@ of libdyninstAPI_RT.so.
 
 ```
 $ export DYNINSTAPI_RT_LIB=/usr/local/lib/libdyninstAPI_RT.so
-$ ./afl-dyninst -i ./unrar -o ./rar_ins -e 0x4034c0 -s 10
+$ ./afl-dyninst -i ./unrar -o ./rar_ins -e 0x4034c0 -x
 Skipping library: libAflDyninst.so
 Instrumenting module: DEFAULT_MODULE
 Inserting init callback.
@@ -155,7 +154,7 @@ and outputing to unrar_ins
 You can also use the afl-dyninst.sh helper script which sets the required
 environment variables for you:
 ```
-$ ./afl-dyninst.sh -i ./unrar -o ./rar_ins -e 0x4034c0 -s 10
+$ ./afl-dyninst.sh -i ./unrar -o ./rar_ins -e 0x4034c0 -x
 ```
 
 
@@ -191,14 +190,14 @@ Problem 1: The binary does not work (crashes or hangs)
 
 Solution: increase the -m parameter. -m 8 is the minimum recommended, on some
           targets -m 16 is required etc.
-          You can also try to remove -x performance enhancers
+          You can also try to remove the -x performance enhancer
 
 
 Problem 2: Basically every fuzzing test case is reported as crash although it
            does not when running it from the command line
 
 Solution: This happens if the target is using throw/catch, and dyninst's
-          modification result in that the cought exception is not resetted and
+          modification result in that the caught exception is not resetted and
           hence abort() is triggered.
           No solution to this issue is known yet.
           Binary editing the target binary to perform _exit(0) would help though.

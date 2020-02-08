@@ -42,7 +42,7 @@ set<string> skipAddresses;
 set<string> onlyAddresses;
 set<unsigned long> exitAddresses;
 unsigned int bbMinSize = 10;
-int bbSkip = 0, performance = 0;
+int bbSkip = 0, performance = 1;
 bool skipMainModule = false, do_bb = true, dynfix = false;
 unsigned long int insertions = 0;
 uintptr_t mapaddr = 0;
@@ -55,11 +55,9 @@ const char *functions[] = {"main", "_main", "_initproc", "_init", "start", "_sta
 const char *instLibrary = "libAflDyninst.so";
 
 static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:I:Dx";
-static const char *USAGE = " -dfvxD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -I <funcname> -m <size>\n \
+static const char *USAGE = " -fvxD -i <binary> -o <binary> -e <address> -E <address> -s <number> -S <funcname> -I <funcname> -m <size>\n \
   -i: input binary \n \
   -o: output binary\n \
-  -d: do not instrument the binary, only supplied libraries\n \
-  -l: linked library to instrument (repeat for more than one)\n \
   -r: runtime library to instrument (path to, repeat for more than one)\n \
   -e: entry point address to patch (required for stripped binaries)\n \
   -E: exit point - force exit(0) at this address (repeat for more than one)\n \
@@ -69,10 +67,9 @@ static const char *USAGE = " -dfvxD -i <binary> -o <binary> -l <library> -e <add
   -I: only instrument this function and nothing else (repeat for more than one)\n \
   -S: do not instrument this function (repeat for more than one)\n \
   -D: instrument only a simple fork server and also forced exit functions\n \
-  -x: experimental performance modes (can be set up to two times)\n \
-        -x (level 1):  ~40-50%% improvement\n \
-        -xx (level 2): ~100%% vs normal, ~40%% vs level 1\n \
-  -v: verbose output\n";
+  -x: experimental performance mode (~25-50% speed improvement)\n \
+  -v: verbose output\n \
+  Note: options -l and -d have been deprecated, use -r instead.\n";
 
 bool parseOptions(int argc, char **argv) {
   int c;
@@ -90,10 +87,7 @@ bool parseOptions(int argc, char **argv) {
               performance = 2;
       #endif
             } else*/
-      if (performance > 2) {
-        fprintf(stderr, "Warning: maximum performance level is 2\n");
-        performance = 2;
-      }
+      if (performance > 2) performance = 2;
       break;
     case 'I':
       onlyAddresses.insert(optarg);
@@ -113,8 +107,9 @@ bool parseOptions(int argc, char **argv) {
       instrumentedBinary = optarg;
       break;
     case 'l':
-      instrumentLibraries.insert(optarg);
-      break;
+       fprintf(stderr, "Error: option -l has been removed due implementation issues, dyninst behaviour and dyninst bugs. Please use -r.\n");
+       exit(-1);
+       break;
     case 'E':
       exitAddresses.insert(strtoul(optarg, NULL, 16));
       break;
@@ -128,11 +123,14 @@ bool parseOptions(int argc, char **argv) {
       bbMinSize = atoi(optarg);
       break;
     case 'd':
-      skipMainModule = true;
+      //skipMainModule = true;
+      fprintf(stderr, "Warning: option -d has been deprecated, due various issues. Just ignore -o file :-)\n");
       break;
     case 'f':
 #if (__amd64__ || __x86_64__)
+#if (DYNINST_MAJOR_VERSION < 10)
       dynfix = true;
+#endif
 #endif
       break;
     case 'D':
@@ -147,11 +145,6 @@ bool parseOptions(int argc, char **argv) {
     }
   }
 
-  if (performance > 0 && do_bb == false) {
-    cerr << "Warning: -x performance options only enhance basic block coverage, not forkserver only mode" << endl;
-    performance = 0;
-  }
-
   if (originalBinary == NULL) {
     cerr << "Input binary is required!" << endl;
     cerr << "Usage: " << argv[0] << USAGE;
@@ -160,12 +153,6 @@ bool parseOptions(int argc, char **argv) {
 
   if (instrumentedBinary == NULL) {
     cerr << "Output binary is required!" << endl;
-    cerr << "Usage: " << argv[0] << USAGE;
-    return false;
-  }
-
-  if (skipMainModule && instrumentLibraries.empty()) {
-    cerr << "If using option -d , option -l is required." << endl;
     cerr << "Usage: " << argv[0] << USAGE;
     return false;
   }
@@ -198,6 +185,8 @@ bool insertCallToInit(BPatch_addressSpace *appBin, BPatch_function *instIncFunc,
     return false;
   }
 
+  // THIS BLOCK IS DISABLED - dyninst is too volatile for this to work reliably
+  // disabled because performance can not be greater than 2
   if (performance >= 3 && install_hack == true) {
     cout << "Inserting global variables" << endl;
     // we set up a fake map so we do not have crashes if the the forkserver
@@ -325,6 +314,7 @@ bool insertBBCallback(BPatch_addressSpace *appBin, BPatch_function *curFunc, cha
       BPatch_funcCallExpr instIncExpr3(*restore_rdi, instArgs1);
 #endif
       BPatch_funcCallExpr instIncExpr(*instBBIncFunc, instArgs);
+
 
 #if (DYNINST_MAJOR_VERSION < 10)
       if (dynfix == true)
@@ -468,9 +458,9 @@ int main(int argc, char **argv) {
 
   if (!initAflForkServer || !bbCallback || !forceCleanExit
 #if (DYNINST_MAJOR_VERSION < 10)
-      || !save_rdi || !restore_rdi
+      || !save_rdi || !restore_rdi 
 #endif
-  ) {
+     ) {
     cerr << "Instrumentation library lacks callbacks!" << endl;
     return EXIT_FAILURE;
   }
@@ -479,6 +469,7 @@ int main(int argc, char **argv) {
 
   // if an entrypoint was set then find function, else find _init
   BPatch_function *funcToPatch = NULL;
+
   if (entryPoint == 0 && entryPointName == NULL) {
     if (func2patch == NULL) {
       cerr << "Couldn't locate _init, specify entry point manually with -e 0xaddr" << endl;
@@ -547,39 +538,20 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  bool skip_until_next_library = false;
-
   for (moduleIter = modules->begin(); moduleIter != modules->end(); ++moduleIter) {
     char moduleName[1024];
 
     (*moduleIter)->getName(moduleName, 1024);
-    if ((*moduleIter)->isSharedLib() && (strstr(moduleName, ".so.") != NULL || (strlen(moduleName) > 3 && strncmp(moduleName + strlen(moduleName) - 3, ".so", 3) == 0))) {
-      bool skip_this_lib = true;
-      for (std::set<std::string>::iterator libIter = instrumentLibraries.begin(); libIter != instrumentLibraries.end(); ++libIter)
-        if (strncmp(libIter->c_str(), moduleName, strlen(libIter->c_str())) == 0)
-          skip_this_lib = false;
-      if (skip_this_lib == true) {
-        skip_until_next_library = true;
+    if ((*moduleIter)->isSharedLib()) {
+      if (instrumentLibraries.find(moduleName) == instrumentLibraries.end() && string(moduleName).find(".so") != string::npos) {
         cout << "Skipping library: " << moduleName << endl;
         continue;
-      } else {
-        skip_until_next_library = false;
       }
     }
 
     if (string(moduleName).find(defaultModuleName) != string::npos) {
-      if (skipMainModule) {
-        skip_until_next_library = true;
+      if (skipMainModule)
         continue;
-      } else {
-        skip_until_next_library = false;
-      }
-    }
-
-    if (skip_until_next_library == true) {
-      if (verbose)
-        cout << "Skipping " << moduleName << " because skip_until_next_library is active" << endl;
-      continue;
     }
 
     if (do_bb == true) {

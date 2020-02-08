@@ -1,4 +1,4 @@
-#include "config.h"
+#include "config.h" // do symlink: ln -s ../AFLplusplus/include afl
 #include "dyninstversion.h" // if this include errors, compile and install https://github.com/dyninst/dyninst
 #include <algorithm>
 #include <cstdio>
@@ -23,8 +23,8 @@ static pid_t __afl_fork_pid;
 static unsigned short int prev_id = 0;
 static bool forkserver_installed = false;
 #if (__amd64__ || __x86_64__)
-static long saved_di;
 #if (DYNINST_MAJOR_VERSION < 10)
+static long saved_di;
 register long rdi asm("di"); // the warning is fine - we need the warning because of a bug in dyninst9
 #endif
 #endif
@@ -100,9 +100,7 @@ void save_rdi() {
   saved_di = rdi;
 #endif
 }
-#endif
 
-#if (DYNINST_MAJOR_VERSION < 10)
 void restore_rdi() {
 #if __amd64__ || __x86_64__
   rdi = saved_di;
