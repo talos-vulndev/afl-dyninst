@@ -26,13 +26,13 @@ docker run -ti afl-dyninst
 
 ### on your own
 
-1. Clone, compile and install dyninst: https://github.com/dyninst/dyninst/
+1. Clone, compile and install dyninst: [https://github.com/dyninst/dyninst](https://github.com/dyninst/dyninst)
 
 Note that you could also use dyninst 9.3.2, but has less platform support and
 quite a few bugs. For using dyninst 9.x you have to edit the Makefile
 Using at least 10.1.0 is highly recommended!
 
-2. Download and install afl++ from https://github.com/vanhauser-thc/AFLplusplus
+2. Download and install afl++ from [https://github.com/vanhauser-thc/AFLplusplus](https://github.com/vanhauser-thc/AFLplusplus)
 It's an up to date and enhanced version to the original afl with better
 performance, new features and bugfixes.
 
@@ -204,4 +204,4 @@ Solution: This happens if the target is using throw/catch, and dyninst's
           No solution to this issue is known yet.
           Binary editing the target binary to perform _exit(0) would help though.
 
-More problems? Create an issue at https://github.com/vanhauser-thc/afl-dyninst
+More problems? Create an issue at [https://github.com/vanhauser-thc/afl-dyninst](https://github.com/vanhauser-thc/afl-dyninst)
