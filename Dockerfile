@@ -37,6 +37,8 @@ RUN git clone https://github.com/vanhauser-thc/AFLplusplus \
         && make clean \
         && cd ..
 
+RUN mkdir -p /path/to/dyninst/ && ln -s /dyninst/build /path/to/dyninst/build-directory
+
 RUN git clone https://github.com/vanhauser-thc/afl-dyninst \
         && cd afl-dyninst \
         && ln -s ../AFLplusplus afl \
