@@ -28,7 +28,6 @@ RUN git clone https://github.com/dyninst/dyninst \
         && cmake .. \
         && make \
         && make install \
-        && cd .. ; rm -rf build ; cd ..
 
 RUN git clone https://github.com/vanhauser-thc/AFLplusplus \
         && cd AFLplusplus \
