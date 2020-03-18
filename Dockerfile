@@ -27,8 +27,7 @@ RUN git clone https://github.com/dyninst/dyninst \
         && cd dyninst && mkdir build && cd build \
         && cmake .. \
         && make \
-        && make install \
-        && cd .. ; rm -rf build ; cd ..
+        && make install
 
 RUN git clone https://github.com/vanhauser-thc/AFLplusplus \
         && cd AFLplusplus \
@@ -36,6 +35,8 @@ RUN git clone https://github.com/vanhauser-thc/AFLplusplus \
         && make install \
         && make clean \
         && cd ..
+
+RUN mkdir -p /path/to/dyninst/ && ln -s /dyninst/build /path/to/dyninst/build-directory
 
 RUN git clone https://github.com/vanhauser-thc/afl-dyninst \
         && cd afl-dyninst \
