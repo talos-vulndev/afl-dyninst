@@ -33,7 +33,6 @@ RUN git clone https://github.com/vanhauser-thc/AFLplusplus \
         && cd AFLplusplus \
         && make source-only \
         && make install \
-        && make clean \
         && cd ..
 
 RUN mkdir -p /path/to/dyninst/ && ln -s /dyninst/build /path/to/dyninst/build-directory
@@ -43,9 +42,10 @@ RUN git clone https://github.com/vanhauser-thc/afl-dyninst \
         && ln -s ../AFLplusplus afl \
         && make \
         && make install \
-        && make clean \
         && cd .. \
         && echo "/usr/local/lib" > /etc/ld.so.conf.d/dyninst.conf && ldconfig \
         && echo "export DYNINSTAPI_RT_LIB=/usr/local/lib/libdyninstAPI_RT.so" >> .bashrc
+
+RUN rm -rf afl-dyninst AFLplusplus dyninst
 
 ENV DYNINSTAPI_RT_LIB /usr/local/lib/libdyninstAPI_RT.so
