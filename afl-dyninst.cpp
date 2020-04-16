@@ -288,6 +288,7 @@ bool insertBBCallback(BPatch_addressSpace *appBin, BPatch_function *curFunc, cha
 
     BPatchSnippetHandle *handle;
 
+    // level 3 is disabled
     if (performance >= 3) {
       // these are dummy instructions we overwrite later
       BPatch_variableExpr *pid = appImage->findVariable("prev_id");

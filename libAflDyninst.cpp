@@ -16,7 +16,7 @@
 using namespace std;
 
 static u8 dummy[65536];
-static u8 *trace_bits = dummy; // this saves a test + jz instruction
+static u8 *__afl_area_ptr = dummy; // this saves a test + jz instruction
 static s32 shm_id;
 static int __afl_temp_data;
 static pid_t __afl_fork_pid;
@@ -44,8 +44,8 @@ void initAflForkServer() {
     return;
   }
   shm_id = atoi(shm_env_var);
-  trace_bits = (u8 *)shmat(shm_id, NULL, 0);
-  if (trace_bits == (u8 *)-1) {
+  __afl_area_ptr = (u8 *)shmat(shm_id, NULL, 0);
+  if (__afl_area_ptr == (u8 *)-1) {
     PRINT_ERROR("Error: shmat\n");
     return;
   }
@@ -88,7 +88,7 @@ void initAflForkServer() {
 
 // Should be called on basic block entry
 void bbCallback(unsigned short id) {
-  trace_bits[prev_id ^ id]++;
+  __afl_area_ptr[prev_id ^ id]++;
   prev_id = id >> 1;
 }
 
@@ -161,7 +161,7 @@ void initAflForkServerVar(u8 *map) {
   if (!shm_env_var) {
     char buf[256];
     PRINT_ERROR("Error getting shm\n");
-    snprintf(buf, sizeof(buf), "trace_bits: %p\n", ptr);
+    snprintf(buf, sizeof(buf), "__afl_area_ptr: %p\n", ptr);
     PRINT_ERROR(buf);
     return;
   }
