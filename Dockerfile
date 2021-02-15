@@ -19,6 +19,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get -y install \
         libelf1 \
         libiberty-dev \
         libboost-all-dev \
+        libdw-dev \
         libtbb2 \
         libtbb-dev \
     && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
