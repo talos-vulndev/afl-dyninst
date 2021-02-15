@@ -1,4 +1,5 @@
 #include "config.h" // do symlink: ln -s ../AFLplusplus/include afl
+#include "types.h" // Also needed via symlink for newer AFL versions
 #include "dyninstversion.h" // if this include errors, compile and install https://github.com/dyninst/dyninst
 #include <algorithm>
 #include <cstdio>
