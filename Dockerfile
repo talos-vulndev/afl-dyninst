@@ -9,10 +9,13 @@ RUN apt-get update && apt-get -y upgrade && apt-get -y install \
         make \
         cmake \
         git \
+        gdb \
         ca-certificates \
         tar \
         gzip \
         vim \
+        joe \
+        wget \
         curl \
         apt-utils \
         libelf-dev \
@@ -24,27 +27,24 @@ RUN apt-get update && apt-get -y upgrade && apt-get -y install \
         libtbb-dev \
     && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/dyninst/dyninst \
+RUN git clone --depth=1 https://github.com/dyninst/dyninst \
         && cd dyninst && mkdir build && cd build \
         && cmake .. \
-        && make \
+        && make -j3 \
         && make install
 
-RUN git clone https://github.com/vanhauser-thc/AFLplusplus \
+RUN git clone --depth=1 https://github.com/AFLplusplus/AFLplusplus \
         && cd AFLplusplus \
         && make source-only \
-        && make install \
-        && cd ..
+        && make install
 
-RUN mkdir -p /path/to/dyninst/ && ln -s /dyninst/build /path/to/dyninst/build-directory
-
-RUN git clone https://github.com/vanhauser-thc/afl-dyninst \
+RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-dyninst \
         && cd afl-dyninst \
         && ln -s ../AFLplusplus afl \
         && make \
-        && make install \
-        && cd .. \
-        && echo "/usr/local/lib" > /etc/ld.so.conf.d/dyninst.conf && ldconfig \
+        && make install
+
+RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/dyninst.conf && ldconfig \
         && echo "export DYNINSTAPI_RT_LIB=/usr/local/lib/libdyninstAPI_RT.so" >> .bashrc
 
 RUN rm -rf afl-dyninst AFLplusplus dyninst

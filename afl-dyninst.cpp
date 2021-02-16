@@ -346,7 +346,7 @@ int main(int argc, char **argv) {
   char *func2patch = NULL;
   int loop;
 
-  cout << "afl-dyninst (c) 2017-2020 by Aleksandar Nikolic and Marc Heuse [https://github.com/vanhauser-thc/afl-dyninst] Apache 2.0 License" << endl;
+  cout << "afl-dyninst (c) 2017-2021 by Aleksandar Nikolic and Marc Heuse [https://github.com/vanhauser-thc/afl-dyninst] Apache 2.0 License" << endl;
 
   if (argc < 3 || strncmp(argv[1], "-h", 2) == 0 || strncmp(argv[1], "--h", 3) == 0) {
     cout << "Usage: " << argv[0] << USAGE;
