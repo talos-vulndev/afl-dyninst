@@ -9,6 +9,10 @@ Instrumentation tool (afl-dyninst) instruments the supplied binary by
 inserting callbacks for each basic block and an initialization 
 callback either at _init or at specified entry point.
 
+You can pull a docker image from hub (last push February 2021):
+```
+docker pull vanhauser/afl-dyninst
+```
 
 ## Building / Compiling
 
