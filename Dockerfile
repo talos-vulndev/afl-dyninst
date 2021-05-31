@@ -1,46 +1,52 @@
-FROM ubuntu:trusty
-MAINTAINER rjohnson@moflow.org/vh@thc.org
+FROM kalilinux/kali-rolling AS afl-dyninst
+MAINTAINER vh@thc.org
 
-# dyninst ubuntu 14.04/x64
-RUN apt-get update && apt-get install -y \
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get -y upgrade && apt-get -y install \
         build-essential \
         gcc \
         g++ \
         make \
         cmake \
         git \
+        gdb \
         ca-certificates \
         tar \
         gzip \
         vim \
+        joe \
+        wget \
         curl \
+        apt-utils \
         libelf-dev \
         libelf1 \
         libiberty-dev \
         libboost-all-dev \
-    && rm -rf /var/lib/apt/lists/*
+        libdw-dev \
+        libtbb2 \
+        libtbb-dev \
+    && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/dyninst/dyninst \
+RUN git clone --depth=1 https://github.com/dyninst/dyninst \
         && cd dyninst && mkdir build && cd build \
         && cmake .. \
-        && make \
-        && make install \
-        && cd ../..
+        && make -j3 \
+        && make install
 
-RUN curl http://lcamtuf.coredump.cx/afl/releases/afl-latest.tgz | tar -zxvf - \
-        && cd afl-* \
-        && make \
-        && make install \
-        && cd ..
+RUN git clone --depth=1 https://github.com/AFLplusplus/AFLplusplus \
+        && cd AFLplusplus \
+        && make source-only \
+        && make install
 
-RUN git clone https://github.com/vanhauser-thc/afl-dyninst \
+RUN git clone --depth=1 https://github.com/vanhauser-thc/afl-dyninst \
         && cd afl-dyninst \
-        && ln -s `ls -d1 ../afl-2* | tail -1` afl \
+        && ln -s ../AFLplusplus afl \
         && make \
-        && make install \
-        && cd .. \
-        && echo "/usr/local/lib" > /etc/ld.so.conf.d/dyninst.conf && ldconfig \
+        && make install
+
+RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/dyninst.conf && ldconfig \
         && echo "export DYNINSTAPI_RT_LIB=/usr/local/lib/libdyninstAPI_RT.so" >> .bashrc
 
-# output usage and give a shell 
-CMD afl-dyninst ; /bin/bash -i
+RUN rm -rf afl-dyninst AFLplusplus dyninst
+
+ENV DYNINSTAPI_RT_LIB /usr/local/lib/libdyninstAPI_RT.so

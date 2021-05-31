@@ -1,70 +1,103 @@
-#include <cstdlib>
-#include <iostream>
-#include <vector>
-#include <string>
-#include <stdlib.h>
-#include <sstream>
 #include <climits>
-using namespace std;
-
-// Command line parsing
+#include <cstdlib>
+#include <fcntl.h>
 #include <getopt.h>
+#include <iostream>
+#include <sstream>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <vector>
 
 // DyninstAPI includes
 #include "BPatch.h"
+#include "BPatch_addressSpace.h"
 #include "BPatch_binaryEdit.h"
 #include "BPatch_flowGraph.h"
 #include "BPatch_function.h"
 #include "BPatch_point.h"
-#include "dyninstversion.h"
+#include "BPatch_process.h"
+#include "dyninstversion.h" // if this include errors, compile and install https://github.com/dyninst/dyninst
 
+using namespace std;
 using namespace Dyninst;
 
-//cmd line options
+// cmd line options
 char *originalBinary;
 char *instrumentedBinary;
-bool verbose = false;
+char *entryPointName = NULL;
+int verbose = 0;
 
 Dyninst::Address entryPoint;
-set < string > instrumentLibraries;
-set < string > runtimeLibraries;
-set < string > skipAddresses;
-set < unsigned long > exitAddresses;
-unsigned int bbMinSize = 1;
-int bbSkip = 0;
+set<string> todo;
+set<string> instrumentLibraries;
+set<string> runtimeLibraries;
+set<string> skipAddresses;
+set<string> onlyAddresses;
+set<unsigned long> exitAddresses;
+unsigned int bbMinSize = 10;
+int bbSkip = 0, performance = 1;
 bool skipMainModule = false, do_bb = true, dynfix = false;
+unsigned long int insertions = 0;
+uintptr_t mapaddr = 0;
 
 BPatch_function *save_rdi;
 BPatch_function *restore_rdi;
 
+const char *functions[] = {"main", "_main", "_initproc", "_init", "start", "_start", NULL};
+
 const char *instLibrary = "libAflDyninst.so";
 
-static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:D";
-static const char *USAGE = "-dfvD -i <binary> -o <binary> -l <library> -e <address> -E <address> -s <number> -S <funcname> -m <size>\n \
+static const char *OPT_STR = "fi:o:l:e:E:vs:dr:m:S:I:Dx";
+static const char *USAGE = " -fvxD -i <binary> -o <binary> -e <address> -E <address> -s <number> -S <funcname> -I <funcname> -m <size>\n \
   -i: input binary \n \
   -o: output binary\n \
-  -d: do not instrument the binary, only supplied libraries\n \
-  -l: linked library to instrument (repeat for more than one)\n \
   -r: runtime library to instrument (path to, repeat for more than one)\n \
   -e: entry point address to patch (required for stripped binaries)\n \
   -E: exit point - force exit(0) at this address (repeat for more than one)\n \
   -s: number of initial basic blocks to skip in binary\n \
-  -m: minimum size of a basic bock to instrument (default: 1)\n \
-  -f: try to fix a dyninst bug that leads to crashes\n \
+  -m: minimum size of a basic bock to instrument (default: 10)\n \
+  -f: fix a dyninst bug that leads to crashes (performance loss, only dyninst9)\n \
+  -I: only instrument this function and nothing else (repeat for more than one)\n \
   -S: do not instrument this function (repeat for more than one)\n \
   -D: instrument only a simple fork server and also forced exit functions\n \
-  -v: verbose output\n";
+  -x: experimental performance mode (~25-50% speed improvement)\n \
+  -v: verbose output\n \
+  Note: options -l and -d have been deprecated, use -r and -D instead.\n";
 
 bool parseOptions(int argc, char **argv) {
   int c;
 
   while ((c = getopt(argc, argv, OPT_STR)) != -1) {
-    switch ((char) c) {
+    switch ((char)c) {
+    case 'x':
+      performance++;
+      /*
+            if (performance == 3) {
+      #if ( __amd64__ || __x86_64__ )
+              fprintf(stderr, "Warning: performance level 3 is currently totally experimental\n");
+      #else
+              fprintf(stderr, "Warning: maximum performance level for non-intelx64 x86 is 2\n");
+              performance = 2;
+      #endif
+            } else*/
+      if (performance > 2) performance = 2;
+      break;
+    case 'I':
+      onlyAddresses.insert(optarg);
+      break;
     case 'S':
       skipAddresses.insert(optarg);
       break;
     case 'e':
-      entryPoint = strtoul(optarg, NULL, 16);
+      if ((entryPoint = strtoul(optarg, NULL, 16)) < 0x1000)
+        entryPointName = optarg;
       break;
     case 'i':
       originalBinary = optarg;
@@ -74,8 +107,9 @@ bool parseOptions(int argc, char **argv) {
       instrumentedBinary = optarg;
       break;
     case 'l':
-      instrumentLibraries.insert(optarg);
-      break;
+       fprintf(stderr, "Error: option -l has been removed due implementation issues, dyninst behaviour and dyninst bugs. Please use -r.\n");
+       exit(-1);
+       break;
     case 'E':
       exitAddresses.insert(strtoul(optarg, NULL, 16));
       break;
@@ -89,16 +123,21 @@ bool parseOptions(int argc, char **argv) {
       bbMinSize = atoi(optarg);
       break;
     case 'd':
-      skipMainModule = true;
+      //skipMainModule = true;
+      fprintf(stderr, "Warning: option -d has been deprecated, use -D instead or ignore the generated -o file.\n");
       break;
     case 'f':
+#if (__amd64__ || __x86_64__)
+#if (DYNINST_MAJOR_VERSION < 10)
       dynfix = true;
+#endif
+#endif
       break;
     case 'D':
       do_bb = false;
       break;
     case 'v':
-      verbose = true;
+      verbose++;
       break;
     default:
       cerr << "Usage: " << argv[0] << USAGE;
@@ -118,20 +157,13 @@ bool parseOptions(int argc, char **argv) {
     return false;
   }
 
-  if (skipMainModule && instrumentLibraries.empty()) {
-    cerr << "If using option -d , option -l is required." << endl;
-    cerr << "Usage: " << argv[0] << USAGE;
-    return false;
-  }
-
   return true;
 }
 
-BPatch_function *findFuncByName(BPatch_image * appImage, char *funcName) {
-  BPatch_Vector < BPatch_function * >funcs;
+BPatch_function *findFuncByName(BPatch_image *appImage, char *funcName) {
+  BPatch_Vector<BPatch_function *> funcs;
 
-  if (NULL == appImage->findFunction(funcName, funcs) || !funcs.size()
-      || NULL == funcs[0]) {
+  if (NULL == appImage->findFunction(funcName, funcs) || !funcs.size() || NULL == funcs[0]) {
     cerr << "Failed to find " << funcName << " function." << endl;
     return NULL;
   }
@@ -141,23 +173,50 @@ BPatch_function *findFuncByName(BPatch_image * appImage, char *funcName) {
 
 // insert callback to initialization function in the instrumentation library
 // either at _init or at manualy specified entry point.
-bool insertCallToInit(BPatch_binaryEdit *appBin, BPatch_function *instIncFunc, BPatch_module *module, BPatch_function *funcInit) {
+bool insertCallToInit(BPatch_addressSpace *appBin, BPatch_function *instIncFunc, BPatch_module *module, BPatch_function *funcInit, bool install_hack) {
   /* Find the instrumentation points */
-  vector < BPatch_point * >points;
-  vector < BPatch_point * >*funcEntry = funcInit->findPoint(BPatch_entry);
+  vector<BPatch_point *> points;
+  vector<BPatch_point *> *funcEntry = funcInit->findPoint(BPatch_entry);
+  BPatch_image *appImage = appBin->getImage();
+  BPatchSnippetHandle *handle;
 
   if (NULL == funcEntry) {
     cerr << "Failed to find entry for function. " << endl;
     return false;
   }
 
-  cout << "Inserting init callback." << endl;
-  BPatch_Vector < BPatch_snippet * >instArgs;   // init has no args
-  BPatch_funcCallExpr instIncExpr(*instIncFunc, instArgs);
+  // THIS BLOCK IS DISABLED - dyninst is too volatile for this to work reliably
+  // disabled because performance can not be greater than 2
+  if (performance >= 3 && install_hack == true) {
+    cout << "Inserting global variables" << endl;
+    // we set up a fake map so we do not have crashes if the the forkserver
+    // is not installed in _init but later for speed reasons.
+    // we could also check in the bb() code if map == 0 but that would
+    // cost precious instructions.
+    BPatch_variableExpr *fakemap = appBin->malloc(65536);
+    BPatch_constExpr fakemap_ptr(fakemap->getBaseAddr());
+    BPatch_variableExpr *map = appBin->malloc(*(appImage->findType("size_t")), "map");
+    BPatch_arithExpr initmap(BPatch_assign, *map, fakemap_ptr);
 
-  /* Insert the snippet at function entry */
-  BPatchSnippetHandle *handle = appBin->insertSnippet(instIncExpr, *funcEntry, BPatch_callBefore,
-                                                      BPatch_lastSnippet);
+    appBin->insertSnippet(initmap, *funcEntry, BPatch_firstSnippet);
+    BPatch_constExpr map_ptr(map->getBaseAddr());
+    BPatch_variableExpr *prev_id = appBin->malloc(*(appImage->findType("size_t")), "prev_id");
+    BPatch_arithExpr initprevid(BPatch_assign, *prev_id, BPatch_constExpr(0));
+
+    appBin->insertSnippet(initprevid, *funcEntry);
+    BPatch_Vector<BPatch_snippet *> instArgs;
+    cout << "Inserting init callback." << endl;
+    instArgs.push_back(&map_ptr);
+    BPatch_funcCallExpr instIncExpr(*instIncFunc, instArgs);
+
+    handle = appBin->insertSnippet(instIncExpr, *funcEntry, BPatch_callBefore, BPatch_lastSnippet);
+  } else {
+    BPatch_Vector<BPatch_snippet *> instArgs;
+    cout << "Inserting init callback." << endl;
+    BPatch_funcCallExpr instIncExpr(*instIncFunc, instArgs);
+
+    handle = appBin->insertSnippet(instIncExpr, *funcEntry, BPatch_callBefore, BPatch_lastSnippet);
+  }
 
   if (!handle) {
     cerr << "Failed to insert init callback." << endl;
@@ -168,7 +227,8 @@ bool insertCallToInit(BPatch_binaryEdit *appBin, BPatch_function *instIncFunc, B
 
 // inserts a callback for each basic block assigning it an instrumentation
 // time 16bit random ID just as afl
-bool insertBBCallback(BPatch_binaryEdit *appBin, BPatch_function *curFunc, char *funcName, BPatch_function *instBBIncFunc, int *bbIndex) {
+bool insertBBCallback(BPatch_addressSpace *appBin, BPatch_function *curFunc, char *funcName, BPatch_function *instBBIncFunc, int *bbIndex) {
+  BPatch_image *appImage = appBin->getImage();
   BPatch_flowGraph *appCFG = curFunc->getCFG();
   unsigned short randID;
 
@@ -177,7 +237,7 @@ bool insertBBCallback(BPatch_binaryEdit *appBin, BPatch_function *curFunc, char 
     return false;
   }
 
-  BPatch_Set < BPatch_basicBlock * >allBlocks;
+  BPatch_Set<BPatch_basicBlock *> allBlocks;
   if (!appCFG->getAllBasicBlocks(allBlocks)) {
     cerr << "Failed to find basic blocks for function " << funcName << endl;
     return false;
@@ -186,25 +246,38 @@ bool insertBBCallback(BPatch_binaryEdit *appBin, BPatch_function *curFunc, char 
     return false;
   }
 
-  BPatch_Set < BPatch_basicBlock * >::iterator iter;
+  BPatch_Set<BPatch_basicBlock *>::iterator iter;
   for (iter = allBlocks.begin(); iter != allBlocks.end(); iter++) {
-    if (*bbIndex < bbSkip || (*iter)->size() < bbMinSize) {    // skip over first bbSkip bbs
+    if (*bbIndex < bbSkip || (*iter)->size() < bbMinSize) { // skip over first bbSkip bbs or below minimum size
       (*bbIndex)++;
       continue;
     }
+
+    BPatch_point *bbEntry = (*iter)->findEntryPoint();
+
+    if (performance >= 1) {
+      if ((*iter)->isEntryBlock() == false) {
+        bool good = false;
+
+        BPatch_Vector<BPatch_basicBlock *> sources;
+        (*iter)->getSources(sources);
+        for (unsigned int i = 0; i < sources.size() && good == false; i++) {
+          BPatch_Vector<BPatch_basicBlock *> targets;
+          sources[i]->getTargets(targets);
+          if (targets.size() > 1)
+            good = true;
+        }
+        if (good == false)
+          continue;
+      }
+    }
+
     unsigned long address = (*iter)->getStartAddress();
 
     randID = rand() % USHRT_MAX;
-    if (verbose) {
+    if (verbose >= 1) {
       cout << "Instrumenting Basic Block 0x" << hex << address << " of " << funcName << " with size " << dec << (*iter)->size() << " with random id " << randID << "/0x" << hex << randID << endl;
     }
-
-    BPatch_Vector < BPatch_snippet * >instArgs1;
-    BPatch_Vector < BPatch_snippet * >instArgs;
-    BPatch_constExpr bbId(randID);
-
-    instArgs.push_back(&bbId);
-    BPatch_point *bbEntry = (*iter)->findEntryPoint();
 
     if (NULL == bbEntry) {
       // warn the user, but continue
@@ -213,22 +286,55 @@ bool insertBBCallback(BPatch_binaryEdit *appBin, BPatch_function *curFunc, char 
       continue;
     }
 
-    BPatch_funcCallExpr instIncExpr1(*save_rdi, instArgs1);
-    BPatch_funcCallExpr instIncExpr3(*restore_rdi, instArgs1);
-    BPatch_funcCallExpr instIncExpr(*instBBIncFunc, instArgs);
     BPatchSnippetHandle *handle;
-    if (dynfix == true)
-      handle = appBin->insertSnippet(instIncExpr1, *bbEntry, BPatch_callBefore, BPatch_lastSnippet);
-    handle = appBin->insertSnippet(instIncExpr, *bbEntry, BPatch_callBefore, BPatch_lastSnippet);
-    if (dynfix == true)
-      handle = appBin->insertSnippet(instIncExpr3, *bbEntry, BPatch_callBefore, BPatch_lastSnippet);
+
+    // level 3 is disabled
+    if (performance >= 3) {
+      // these are dummy instructions we overwrite later
+      BPatch_variableExpr *pid = appImage->findVariable("prev_id");
+      BPatch_arithExpr new_prev_id(BPatch_assign, *pid, BPatch_arithExpr(BPatch_divide, BPatch_constExpr(8), BPatch_constExpr(2)));
+
+      handle = appBin->insertSnippet(new_prev_id, *bbEntry, BPatch_lastSnippet);
+      BPatch_variableExpr *map = appImage->findVariable("map");
+      BPatch_variableExpr *pid2 = appImage->findVariable("prev_id");
+      BPatch_arithExpr map_idx(BPatch_arithExpr(BPatch_plus, *map, BPatch_arithExpr(BPatch_divide, *pid2, BPatch_constExpr(2))));
+
+      if (mapaddr == 0) {
+        printf("Map for AFL is installed at: %p\n", (void *)map->getBaseAddr());
+        mapaddr = (uintptr_t)map->getBaseAddr();
+      }
+      handle = appBin->insertSnippet(map_idx, *bbEntry, BPatch_firstSnippet);
+    } else {
+      BPatch_Vector<BPatch_snippet *> instArgs1;
+      BPatch_Vector<BPatch_snippet *> instArgs;
+      BPatch_constExpr bbId(randID);
+
+      instArgs.push_back(&bbId);
+#if (DYNINST_MAJOR_VERSION < 10)
+      BPatch_funcCallExpr instIncExpr1(*save_rdi, instArgs1);
+      BPatch_funcCallExpr instIncExpr3(*restore_rdi, instArgs1);
+#endif
+      BPatch_funcCallExpr instIncExpr(*instBBIncFunc, instArgs);
+
+
+#if (DYNINST_MAJOR_VERSION < 10)
+      if (dynfix == true)
+        handle = appBin->insertSnippet(instIncExpr1, *bbEntry, BPatch_callBefore, BPatch_firstSnippet);
+#endif
+      handle = appBin->insertSnippet(instIncExpr, *bbEntry, BPatch_callBefore);
+#if (DYNINST_MAJOR_VERSION < 10)
+      if (dynfix == true)
+        handle = appBin->insertSnippet(instIncExpr3, *bbEntry, BPatch_callBefore, BPatch_lastSnippet);
+#endif
+    }
 
     if (!handle) {
       // warn the user, but continue to next bb
       cerr << "Failed to insert instrumention in basic block at 0x" << hex << address << endl;
       (*bbIndex)++;
       continue;
-    }
+    } else
+      insertions++;
 
     (*bbIndex)++;
   }
@@ -237,6 +343,11 @@ bool insertBBCallback(BPatch_binaryEdit *appBin, BPatch_function *curFunc, char 
 }
 
 int main(int argc, char **argv) {
+  char *func2patch = NULL;
+  int loop;
+
+  cout << "afl-dyninst (c) 2017-2021 by Aleksandar Nikolic and Marc Heuse [https://github.com/vanhauser-thc/afl-dyninst] Apache 2.0 License" << endl;
+
   if (argc < 3 || strncmp(argv[1], "-h", 2) == 0 || strncmp(argv[1], "--h", 3) == 0) {
     cout << "Usage: " << argv[0] << USAGE;
     return false;
@@ -245,7 +356,7 @@ int main(int argc, char **argv) {
   if (!parseOptions(argc, argv)) {
     return EXIT_FAILURE;
   }
-  
+#if (__amd64__ || __x86_64__)
   if (do_bb == true) {
     if (DYNINST_MAJOR_VERSION < 9 || (DYNINST_MAJOR_VERSION == 9 && DYNINST_MINOR_VERSION < 3) || (DYNINST_MAJOR_VERSION == 9 && DYNINST_MINOR_VERSION == 3 && DYNINST_PATCH_VERSION <= 2)) {
       if (dynfix == false)
@@ -255,9 +366,16 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Notice: your dyninst version is fixed, the -f option should not be necessary.\n");
     }
   }
+#endif
 
   BPatch bpatch;
-  BPatch_binaryEdit *appBin = bpatch.openBinary(originalBinary, instrumentLibraries.size() != 1);
+
+  if (performance >= 2) {
+    bpatch.setSaveFPR(false);
+    bpatch.setTrampRecursive(true);
+  }
+
+  BPatch_addressSpace *appBin = bpatch.openBinary(originalBinary, instrumentLibraries.size() != 1);
 
   if (appBin == NULL) {
     cerr << "Failed to open binary" << endl;
@@ -266,40 +384,54 @@ int main(int argc, char **argv) {
 
   BPatch_image *appImage = appBin->getImage();
 
-  //get and iterate over all modules, instrumenting only the default and manually specified ones
-  vector < BPatch_module * >*modules = appImage->getModules();
-  vector < BPatch_module * >::iterator moduleIter;
-  vector < BPatch_function * >*funcsInModule;
-  BPatch_module *defaultModule = NULL;
+  // get and iterate over all modules, instrumenting only the default and manually specified ones
+  vector<BPatch_module *> *modules = appImage->getModules();
+  vector<BPatch_module *>::iterator moduleIter;
+  vector<BPatch_function *> *funcsInModule;
+  BPatch_module *defaultModule = NULL, *firstModule = NULL;
   string defaultModuleName;
 
   // look for _init
   if (defaultModuleName.empty()) {
-    for (moduleIter = modules->begin(); moduleIter != modules->end(); ++moduleIter) {
-      funcsInModule = (*moduleIter)->getProcedures();
-      vector < BPatch_function * >::iterator funcsIterator;
-      for (funcsIterator = funcsInModule->begin(); funcsIterator != funcsInModule->end(); ++funcsIterator) {
-        char funcName[1024];
+    for (loop = 0; functions[loop] != NULL && func2patch == NULL; loop++) {
+      for (moduleIter = modules->begin(); moduleIter != modules->end(); ++moduleIter) {
+        vector<BPatch_function *>::iterator funcsIterator;
+        char moduleName[1024];
 
-        (*funcsIterator)->getName(funcName, 1024);
-        if (string(funcName) == string("_init")) {
-          char moduleName[1024];
+        if (firstModule == NULL)
+          firstModule = (*moduleIter);
+        (*moduleIter)->getName(moduleName, 1024);
+        funcsInModule = (*moduleIter)->getProcedures();
+        if (verbose >= 2)
+          cout << "Looking for init function " << functions[loop] << " in " << moduleName << endl;
+        for (funcsIterator = funcsInModule->begin(); funcsIterator != funcsInModule->end(); ++funcsIterator) {
+          char funcName[1024];
 
-          (*moduleIter)->getName(moduleName, 1024);
-          defaultModuleName = string(moduleName);
-          if (verbose) {
-            cout << "Found _init in " << moduleName << endl;
+          (*funcsIterator)->getName(funcName, 1024);
+          if (verbose >= 3 && loop == 0)
+            printf("module: %s function: %s\n", moduleName, funcName);
+          if (string(funcName) == string(functions[loop])) {
+            func2patch = (char *)functions[loop];
+            defaultModuleName = string(moduleName);
+            defaultModule = (*moduleIter);
+            if (verbose >= 1) {
+              cout << "Found " << func2patch << " in " << moduleName << endl;
+            }
+            break;
           }
-          break;
         }
+        if (!defaultModuleName.empty())
+          break;
       }
-      if (!defaultModuleName.empty())
+      if (func2patch != NULL)
         break;
     }
   }
   // last resort, by name of the binary
   if (defaultModuleName.empty())
     defaultModuleName = string(originalBinary).substr(string(originalBinary).find_last_of("\\/") + 1);
+  if (defaultModule == NULL)
+    defaultModule = firstModule;
 
   if (!appBin->loadLibrary(instLibrary)) {
     cerr << "Failed to open instrumentation library " << instLibrary << endl;
@@ -307,51 +439,126 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  appImage = appBin->getImage();
-
   /* Find code coverage functions in the instrumentation library */
   BPatch_function *initAflForkServer;
-  save_rdi = findFuncByName(appImage, (char *) "save_rdi");
-  restore_rdi = findFuncByName(appImage, (char *) "restore_rdi");
-  BPatch_function *bbCallback = findFuncByName(appImage, (char *) "bbCallback");
-  BPatch_function *forceCleanExit = findFuncByName(appImage, (char *) "forceCleanExit");
 
-  if (do_bb == true)
-    initAflForkServer = findFuncByName(appImage, (char *) "initAflForkServer");
-  else
-    initAflForkServer = findFuncByName(appImage, (char *) "initOnlyAflForkServer");
+#if (DYNINST_MAJOR_VERSION < 10)
+  save_rdi = findFuncByName(appImage, (char *)"save_rdi");
+  restore_rdi = findFuncByName(appImage, (char *)"restore_rdi");
+#endif
+  BPatch_function *bbCallback = findFuncByName(appImage, (char *)"bbCallback");
+  BPatch_function *forceCleanExit = findFuncByName(appImage, (char *)"forceCleanExit");
 
-  if (!initAflForkServer || !bbCallback || !save_rdi || !restore_rdi || !forceCleanExit) {
+  if (do_bb == true) {
+    if (performance >= 3)
+      initAflForkServer = findFuncByName(appImage, (char *)"initAflForkServerVar");
+    else
+      initAflForkServer = findFuncByName(appImage, (char *)"initAflForkServer");
+  } else
+    initAflForkServer = findFuncByName(appImage, (char *)"initOnlyAflForkServer");
+
+  if (!initAflForkServer || !bbCallback || !forceCleanExit
+#if (DYNINST_MAJOR_VERSION < 10)
+      || !save_rdi || !restore_rdi 
+#endif
+     ) {
     cerr << "Instrumentation library lacks callbacks!" << endl;
     return EXIT_FAILURE;
   }
 
   int bbIndex = 0;
 
-  // instrument all shared libraries:
+  // if an entrypoint was set then find function, else find _init
+  BPatch_function *funcToPatch = NULL;
+
+  if (entryPoint == 0 && entryPointName == NULL) {
+    if (func2patch == NULL) {
+      cerr << "Couldn't locate _init, specify entry point manually with -e 0xaddr" << endl;
+      return EXIT_FAILURE;
+    }
+    BPatch_Vector<BPatch_function *> funcs;
+    defaultModule->findFunction(func2patch, funcs);
+    if (!funcs.size()) {
+      cerr << "Couldn't locate _init, specify entry point manually with -e 0xaddr" << endl;
+      return EXIT_FAILURE;
+    }
+    // there should really be only one
+    funcToPatch = funcs[0];
+  } else {
+    if (entryPointName != NULL) {
+      for (moduleIter = modules->begin(); moduleIter != modules->end() && funcToPatch == 0; ++moduleIter) {
+        BPatch_Vector<BPatch_function *> funcs;
+        (*moduleIter)->findFunction(entryPointName, funcs);
+        if (funcs.size() > 0) {
+          char moduleName[1024];
+
+          funcToPatch = funcs[0];
+          defaultModule = (*moduleIter);
+          defaultModule->getName(moduleName, 1024);
+          defaultModuleName = string(moduleName);
+          printf("Found entypoint %s in module %s\n", entryPointName, moduleName);
+          break;
+        }
+      }
+    }
+    if (!funcToPatch) {
+      if (verbose > 1)
+        printf("Looking for entrypoint %p\n", (char *)entryPoint);
+      funcToPatch = defaultModule->findFunctionByEntry(entryPoint);
+      if (!funcToPatch && defaultModule != firstModule) {
+        funcToPatch = firstModule->findFunctionByEntry(entryPoint);
+        if (funcToPatch)
+          defaultModule = firstModule;
+      }
+      if (!funcToPatch) { // ok lets go hardcore ...
+        if (verbose > 1)
+          printf("OK we did not find the entrypoint so far, lets dig deeper ...\n");
+        for (moduleIter = modules->begin(); moduleIter != modules->end() && funcToPatch != NULL; ++moduleIter) {
+          vector<BPatch_function *>::iterator funcsIterator;
+          funcToPatch = (*moduleIter)->findFunctionByEntry(entryPoint);
+          if (funcToPatch)
+            defaultModule = (*moduleIter);
+        }
+      }
+      if (funcToPatch && verbose >= 1) {
+        char moduleName[1024];
+
+        defaultModule->getName(moduleName, 1024);
+        defaultModuleName = string(moduleName);
+        printf("Found entypoint %p in module %s\n", (void *)entryPoint, moduleName);
+      }
+    }
+  }
+  if (!funcToPatch) {
+    cerr << "Couldn't locate function at given entry point. " << endl;
+    cerr << "Try: readelf -ls " << originalBinary << " | egrep 'Entry|FUNC.*GLOBAL.*DEFAULT' | egrep -v '@|UND'" << endl;
+    return EXIT_FAILURE;
+  }
+  if (!insertCallToInit(appBin, initAflForkServer, defaultModule, funcToPatch, true)) {
+    cerr << "Could not insert init callback at given entry point." << endl;
+    return EXIT_FAILURE;
+  }
+
   for (moduleIter = modules->begin(); moduleIter != modules->end(); ++moduleIter) {
     char moduleName[1024];
 
     (*moduleIter)->getName(moduleName, 1024);
-
     if ((*moduleIter)->isSharedLib()) {
-      if (instrumentLibraries.find(moduleName) == instrumentLibraries.end()) {
+      if (instrumentLibraries.find(moduleName) == instrumentLibraries.end() && string(moduleName).find(".so") != string::npos) {
         cout << "Skipping library: " << moduleName << endl;
         continue;
       }
     }
 
     if (string(moduleName).find(defaultModuleName) != string::npos) {
-      defaultModule = (*moduleIter);
       if (skipMainModule)
         continue;
     }
-    
+
     if (do_bb == true) {
       cout << "Instrumenting module: " << moduleName << endl;
-      vector < BPatch_function * >*allFunctions = (*moduleIter)->getProcedures();
-      vector < BPatch_function * >::iterator funcIter;
-
+      vector<BPatch_function *> *allFunctions = (*moduleIter)->getProcedures();
+      vector<BPatch_function *>::iterator funcIter;
       // iterate over all functions in the module
       for (funcIter = allFunctions->begin(); funcIter != allFunctions->end(); ++funcIter) {
         BPatch_function *curFunc = *funcIter;
@@ -359,14 +566,27 @@ int main(int argc, char **argv) {
         int do_patch = 1;
 
         curFunc->getName(funcName, 1024);
-        if (string(funcName) == string("_start"))
-          continue;               // here's a bug on hlt // XXX: check what happens if removed
-        
+        if (string(funcName) == string("_init") || string(funcName) == string("__libc_csu_init") || string(funcName) == string("_start")) {
+          if (verbose)
+            cout << "Skipping instrumenting function " << funcName << endl;
+          continue; // here's a bug on hlt // XXX: check what happens if removed
+        }
         if (!skipAddresses.empty()) {
-          set < string >::iterator saiter;
+          set<string>::iterator saiter;
           for (saiter = skipAddresses.begin(); saiter != skipAddresses.end() && do_patch == 1; saiter++)
             if (*saiter == string(funcName))
               do_patch = 0;
+          if (do_patch == 0) {
+            cout << "Skipping instrumenting function " << funcName << endl;
+            continue;
+          }
+        }
+        if (!onlyAddresses.empty()) {
+          do_patch = 0;
+          set<string>::iterator saiter;
+          for (saiter = onlyAddresses.begin(); saiter != onlyAddresses.end() && do_patch == 1; saiter++)
+            if (*saiter == string(funcName))
+              do_patch = 1;
           if (do_patch == 0) {
             cout << "Skipping instrumenting function " << funcName << endl;
             continue;
@@ -377,40 +597,17 @@ int main(int argc, char **argv) {
     }
   }
 
-  // if an entrypoint was set then find function, else find _init
-  BPatch_function *funcToPatch = NULL;
-
-  if (!entryPoint) {
-    BPatch_Vector < BPatch_function * >funcs;
-    defaultModule->findFunction("_init", funcs);
-    if (!funcs.size()) {
-      cerr << "Couldn't locate _init, specify entry point manually with -e 0xaddr" << endl;
-      return EXIT_FAILURE;
-    }
-    // there should really be only one
-    funcToPatch = funcs[0];
-  } else {
-    funcToPatch = defaultModule->findFunctionByEntry(entryPoint);
-  }
-  if (!funcToPatch) {
-    cerr << "Couldn't locate function at given entry point. " << endl;
-    return EXIT_FAILURE;
-  }
-  if (!insertCallToInit(appBin, initAflForkServer, defaultModule, funcToPatch)) {
-    cerr << "Could not insert init callback at given entry point." << endl;
-    return EXIT_FAILURE;
-  }
-
   if (!exitAddresses.empty()) {
     cout << "Instrumenting forced exit addresses." << endl;
-    set < unsigned long >::iterator uliter;
+    set<unsigned long>::iterator uliter;
+
     for (uliter = exitAddresses.begin(); uliter != exitAddresses.end(); uliter++) {
       if (*uliter > 0 && (signed long)*uliter != -1) {
         funcToPatch = defaultModule->findFunctionByEntry(*uliter);
         if (!funcToPatch) {
           cerr << "Could not find enty point 0x" << hex << *uliter << " (continuing)" << endl;
         } else {
-          if (!insertCallToInit(appBin, forceCleanExit, defaultModule, funcToPatch))
+          if (!insertCallToInit(appBin, forceCleanExit, defaultModule, funcToPatch, false))
             cerr << "Could not insert force clean exit callback at 0x" << hex << *uliter << " (continuing)" << endl;
         }
       }
@@ -419,16 +616,19 @@ int main(int argc, char **argv) {
 
   cout << "Saving the instrumented binary to " << instrumentedBinary << " ..." << endl;
   // Output the instrumented binary
-  if (!appBin->writeFile(instrumentedBinary)) {
+  BPatch_binaryEdit *appBinr = dynamic_cast<BPatch_binaryEdit *>(appBin);
+
+  if (!appBinr->writeFile(instrumentedBinary)) {
     cerr << "Failed to write output file: " << instrumentedBinary << endl;
     return EXIT_FAILURE;
   }
+  todo.insert(instrumentedBinary);
 
   if (!runtimeLibraries.empty()) {
     cout << "Instrumenting runtime libraries." << endl;
-    set < string >::iterator rtLibIter;
+    set<string>::iterator rtLibIter;
     for (rtLibIter = runtimeLibraries.begin(); rtLibIter != runtimeLibraries.end(); rtLibIter++) {
-      BPatch_binaryEdit *libBin = bpatch.openBinary((*rtLibIter).c_str(), false);
+      BPatch_addressSpace *libBin = bpatch.openBinary((*rtLibIter).c_str(), false);
 
       if (libBin == NULL) {
         cerr << "Failed to open binary " << *rtLibIter << endl;
@@ -436,33 +636,94 @@ int main(int argc, char **argv) {
       }
       BPatch_image *libImg = libBin->getImage();
 
-      vector < BPatch_module * >*modules = libImg->getModules();
+      vector<BPatch_module *> *modules = libImg->getModules();
       moduleIter = modules->begin();
-
       for (; moduleIter != modules->end(); ++moduleIter) {
         char moduleName[1024];
 
         (*moduleIter)->getName(moduleName, 1024);
         cout << "Instrumenting module: " << moduleName << endl;
-        vector < BPatch_function * >*allFunctions = (*moduleIter)->getProcedures();
-        vector < BPatch_function * >::iterator funcIter;
+        vector<BPatch_function *> *allFunctions = (*moduleIter)->getProcedures();
+        vector<BPatch_function *>::iterator funcIter;
         // iterate over all functions in the module
         for (funcIter = allFunctions->begin(); funcIter != allFunctions->end(); ++funcIter) {
           BPatch_function *curFunc = *funcIter;
           char funcName[1024];
+          int do_patch = 1;
 
           curFunc->getName(funcName, 1024);
-          if (string(funcName) == string("_start"))
+          if (string(funcName) == string("_init") || string(funcName) == string("__libc_csu_init") || string(funcName) == string("_start"))
             continue;
+          if (!skipAddresses.empty()) {
+            set<string>::iterator saiter;
+            for (saiter = skipAddresses.begin(); saiter != skipAddresses.end() && do_patch == 1; saiter++)
+              if (*saiter == string(funcName))
+                do_patch = 0;
+            if (do_patch == 0) {
+              cout << "Skipping instrumenting function " << funcName << endl;
+              continue;
+            }
+          }
+
           insertBBCallback(libBin, curFunc, funcName, bbCallback, &bbIndex);
         }
       }
-      if (!libBin->writeFile((*rtLibIter + ".ins").c_str())) {
+      appBinr = dynamic_cast<BPatch_binaryEdit *>(libBin);
+      if (!appBinr->writeFile((*rtLibIter + ".ins").c_str())) {
         cerr << "Failed to write output file: " << (*rtLibIter + ".ins").c_str() << endl;
         return EXIT_FAILURE;
       } else {
         cout << "Saved the instrumented library to " << (*rtLibIter + ".ins").c_str() << "." << endl;
+        todo.insert(*rtLibIter + ".ins");
       }
+    }
+  }
+
+  printf("Did a total of %lu basic block insertions\n", insertions);
+
+  if (performance >= 3) {
+    int fd;
+    struct stat st;
+    uint64_t i, found = 0;
+    unsigned char *ptr;
+
+    unsigned char snip1[] = {0x00, 0x00, 0x71, 0x00, 0x00, 0x00, 0x00, 0x00};
+    unsigned char snip2[] = {0x08, 0x00, 0x71, 0x00, 0x00, 0x00, 0x00, 0x00};
+    unsigned char fullsnip[] = {0x53, 0x50, 0x41, 0x52, 0x48, 0xBB, 0x00, 0x00, 0x71, 0x00, 0x00, 0x00, 0x00, 0x00, 0x48, 0x8b, 0x03, 0x48, 0x85, 0xc0, 0x74, 0x28, 0x49, 0xBA, 0x08, 0x00, 0x71, 0x00, 0x00, 0x00, 0x00, 0x00, 0x66, 0x41, 0x8b, 0x1a, 0x66, 0x81, 0xf3, 0x99, 0x99, 0x48, 0x0f, 0xb7, 0xdb, 0x80, 0x04, 0x18, 0x01, 0x66, 0x41, 0x8b, 0x1a, 0x66, 0xd1, 0xfb, 0x66, 0x41, 0x89, 0x1a, 0x41, 0x5a, 0x58, 0x5b, 0x90, 0x90, 0x90, 0x90};
+    memcpy(snip1, (char *)&mapaddr, sizeof(mapaddr));
+    memcpy(fullsnip + 6, (char *)&mapaddr, sizeof(mapaddr));
+    mapaddr += sizeof(mapaddr);
+    memcpy(snip2, (char *)&mapaddr, sizeof(mapaddr));
+    memcpy(fullsnip + 24, (char *)&mapaddr, sizeof(mapaddr));
+    set<string>::iterator fn;
+    for (fn = todo.begin(); fn != todo.end(); fn++) {
+      cout << "Reinstrumenting " << *fn << " ..." << endl;
+      if ((fd = open((const char *)(fn->c_str()), O_RDWR)) == -1 || fstat(fd, &st) != 0) {
+        cerr << "Error: file is gone: " << *fn << endl;
+        exit(-1);
+      }
+      if ((size_t)st.st_size < (size_t)sizeof(fullsnip)) {
+        cerr << "Error: somethings horrible wrong here with " << *fn << " ..." << endl;
+        continue;
+      }
+      ptr = (unsigned char *)mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+      for (i = 2; i < (size_t)st.st_size - (size_t)sizeof(fullsnip); i++) {
+        if (memcmp(ptr + i, snip1, sizeof(snip1)) == 0 && memcmp(ptr + i + sizeof(snip1) + 4, snip2, sizeof(snip2)) == 0) {
+          found++;
+          fullsnip[0x27] = rand() % 256;
+          fullsnip[0x28] = rand() % 256;
+          memcpy(ptr + i - 2, fullsnip, sizeof(fullsnip));
+        }
+      }
+      // printf("found %lu entries, snipsize %u\n", found, (unsigned int)sizeof(fullsnip));
+      munmap((void *)ptr, st.st_size);
+      close(fd);
+    }
+    if (found == insertions) {
+      printf("SUCCESS! Performance level 3 succeeded :)\n");
+    } else {
+      fprintf(stderr, "Error: can not complete performance level 3, could not find all insertions (%lu of %lu).\n", found, insertions);
+      exit(-1);
     }
   }
 

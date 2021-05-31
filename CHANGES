@@ -2,6 +2,22 @@ Changelog
 =========
 
 https://github.com/vanhauser-thc/afl-dyninst
+ - performance level 1 is now standard and only -x needed for extra performance
+   flags. There was no disadvantage in previous level 1 so its default now.
+ - removed -l option because of bugs in the implementation, bugs in dyninst
+   and behavior of dyninst that was not good for our purpose. Use -r instead
+ - Only compile dyninst9 bug workaround when necessary
+ - added -I option (only instrument specific functions)
+ - updated the README for guidance to build with dyninst version 10
+ - added support for dyninst version 10
+ - added -x performance optimization option and a speed enhancement patch that
+   is always active. before this afl-dyninst was meh, now it is OK.
+   top speed is now ~110% on stock afl-dyninst and ~65% on stock afl-gcc
+ - -e option now also understands function names, not only 0x1234 addresses
+ - searches for multiple entrypoints now: main, init, start and _NAME variants
+ - afl-dyninst now works fine with AARCH64 and PPC :)
+ - more verbose output, -vv -vvv support
+ => at this stage did talos-vulndev/afl-dyninst the last pull from this repo
  - fixed some typos
  - renamed afl-fuzz.sh to afl-fuzz-dyninst.sh and make install
    installs now the scripts
@@ -20,4 +36,4 @@ https://github.com/vanhauser-thc/afl-dyninst
  - code beautifications, more detailed output, spelling fixes
  - added afl-dyninst.sh and afl-fuzz.sh helper scripts which presets
    the necessary environment variables
- - based on https://github.com/talos-vulndev/afl-dyninst
+ => intial fork from https://github.com/talos-vulndev/afl-dyninst
